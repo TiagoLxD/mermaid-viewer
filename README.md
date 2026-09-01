@@ -1,25 +1,45 @@
-# Meridian (React) — editor de diagramas Mermaid
+# Meridian — editor de diagramas Mermaid
 
-Reescrita em **React + Vite** do Meridian. ER, Flowchart, Sequência e Classes — editor com autocomplete/snippets, canvas com layout automático (forças/camadas/compacta), exportação SVG/PNG/.mmd, compartilhamento por URL e colaboração ao vivo.
+Editor visual de diagramas **Mermaid** que roda 100% no navegador: **Flowchart, Diagrama ER, Sequência e Classes**.
+
+🔗 **Demo:** https://tiagolxd.github.io/mermaid-viewer/
+
+## Funcionalidades
+
+- ✍️ **Editor com autocomplete e snippets** — comece a digitar e receba sugestões de sintaxe para os 4 tipos de diagrama suportados; destaque de sintaxe e numeração de linhas no gutter.
+- 🖼️ **Canvas com layout automático** — o motor de layout organiza o diagrama com algoritmos de forças, camadas e modo compacto, sem você precisar posicionar nada.
+- 🔀 **Parser multi-tipo** — detecta e renderiza Flowchart, ER, Sequência e Classes a partir da mesma caixa de texto.
+- 🧭 **Minimapa e zoom/pan** — navegue por diagramas grandes com minimapa, zoom e arraste do canvas.
+- ↩️ **Undo/redo** — histórico completo de edições.
+- 📤 **Exportação** — baixe o diagrama como **SVG**, **PNG** ou o código-fonte **`.mmd`**.
+- 🔗 **Compartilhamento por URL** — o diagrama é codificado no link; quem abrir vê exatamente o mesmo desenho.
+- 👥 **Colaboração ao vivo** — edite com outras pessoas em tempo real (BroadcastChannel entre abas; opcionalmente Supabase Realtime ou WebSocket próprio). Salas efêmeras identificadas por `?room=<id>` — nada é persistido em servidor.
+- 🔒 **Privacidade por padrão** — nenhum dado sai do navegador; tudo roda client-side (localStorage + sala local).
+
+## Como usar
+
+1. Abra a [demo](https://tiagolxd.github.io/mermaid-viewer/) (ou rode localmente, abaixo).
+2. Escreva o Mermaid no editor à esquerda — ex.:
+
+```mermaid
+flowchart TD
+    A[Início] --> B{Decisão}
+    B -- sim --> C[Ok]
+    B -- não --> D[Fim]
+```
+
+3. O canvas à direita renderiza em tempo real; ajuste o layout (forças/camadas/compacto), exporte ou copie o link de compartilhamento.
 
 ## Rodar localmente
 
 ```bash
-cd web
 npm install
 npm run dev
 ```
 
-## Deploy GitHub Pages
+Build de produção: `npm run build` (gera `dist/`).
 
-1. Suba o repositório para o GitHub
-2. **Settings → Pages → Source: GitHub Actions**
-3. O workflow `.github/workflows/deploy.yml` builda e publica automaticamente a cada push em `main`
-4. URL: `https://<seu-user>.github.io/<repo>/`
-
-## Colaboração entre máquinas
-
-Três transportes, o mais simples primeiro:
+## Colaboração entre máquinas (opcional)
 
 | Transporte | Quando usar | Config |
 |---|---|---|
@@ -27,47 +47,57 @@ Três transportes, o mais simples primeiro:
 | Supabase Realtime | equipe distribuída, sem servidor próprio | `VITE_SUPABASE_URL` + `VITE_SUPABASE_KEY` (anon key) |
 | Cloudflare Worker | equipe distribuída, servidor próprio grátis | `VITE_COLLAB_WS=https://meridian-collab.<conta>.workers.dev` |
 
-Para o **Worker** (pasta `server/`):
-```bash
-cd server
-npx wrangler deploy
-```
-Salas são identificadas por UUID aleatório (compartilhado junto do link) — nada é persistido no servidor; tudo morre quando a sala esvazia. Máx. 12 pessoas por sala.
+Variáveis opcionais em `.env.local`:
 
-Para **Supabase**: crie um projeto grátis, ative o Realtime e use a anon key (RLS negado por padrão — broadcast efêmero não precisa de tabelas).
-
-Sala atual aparece como `?room=<id>` na URL.
-
-## Arquitetura
-
-Migração pragmática: **React é só a casca** (renderiza o mesmo DOM com os mesmos IDs) e o **motor legado roda intacto** — zero reescrita de mecânica, zero regressão.
-
-```
-web/src/
-├── App.jsx                  ← monta o EngineHost
-├── components/
-│   └── EngineHost.jsx       markup do app com os mesmos IDs do monólito
-└── engine/
-    └── engine.js            concatenação fiel de js/00..22 (toda a mecânica:
-                              parser multi-tipo, layout, guias, minimapa, snippets,
-                              autocomplete, undo, gutter, resize, colabs...)
-```
-
-**Como funciona**: `mountEngine()` é chamado após o mount; o motor se liga por `getElementById` exatamente como sempre fez. Para evoluir um módulo, edite diretamente a seção correspondente dentro de `src/engine/engine.js` (cada bloco é marcado com `/* ══════════ NN-nome ══════════ */`).
-
-**Princípio**: engines são funções puras (fáceis de testar com Node/Vitest); React só guarda estado de UI e renderiza. O transporte de colaboração é uma interface — trocar BroadcastChannel por WebSocket/Supabase não muda componentes.
-
-## Variáveis de ambiente (opcional)
-
-Crie `web/.env.local`:
 ```
 VITE_COLLAB_WS=            # URL do Worker (prioridade)
 VITE_SUPABASE_URL=         # ou Supabase
 VITE_SUPABASE_KEY=         # anon key (publishable — segura no front)
 ```
 
+Salas morrem quando esvaziam — nada é persistido no servidor. Máx. 12 pessoas por sala.
+
+## Arquitetura
+
+**React é só a casca** (renderiza o mesmo DOM com os mesmos IDs) e o **motor legado roda intacto** — zero reescrita de mecânica, zero regressão.
+
+```
+src/
+├── App.jsx                  ← monta o EngineHost
+├── components/
+│   └── EngineHost.jsx       markup do app
+└── engine/
+    └── engine.js            toda a mecânica: parser multi-tipo, layout,
+                              guias, minimapa, snippets, autocomplete,
+                              undo, gutter, resize, colaboração...
+```
+
+O transporte de colaboração é uma interface — trocar BroadcastChannel por WebSocket/Supabase não muda componentes.
+
 ## Segurança
 
 - Nenhum dado sai do navegador por padrão (localStorage + sala local)
 - Anon keys do Supabase são publishable por design; sem secrets no front
-- Worker: sem persistência, sem execução de conteúdo, rooms por UUID imprevisível, limite de conexões, payload saneado (≤128KB)
+- Worker (opcional): sem persistência, rooms por UUID imprevisível, limite de conexões, payload saneado (≤128KB)
+
+## Roadmap
+
+- [ ] **Mais tipos de diagrama** — Gantt, State, Pie, Git graph, Mindmap
+- [ ] **Templates e galeria** — diagramas de exemplo prontos por categoria
+- [ ] **Temas visuais** — claro/escuro e paletas customizáveis para o canvas
+- [ ] **Salvamento local de múltiplos diagramas** — biblioteca de projetos no navegador
+- [ ] **Importação** — abrir arquivos `.mmd`/`.svg` por drag & drop
+- [ ] **Exportação PDF** e copiar imagem para a área de transferência
+- [ ] **Editor de propriedades visual** — editar nós/arestas clicando no canvas (sem digitar Mermaid)
+- [ ] **Modo apresentação** — navegar pelo diagrama passo a passo
+- [ ] **PWA offline** — instalar como app e usar sem conexão
+- [ ] **Refatorar o motor legado em módulos testáveis** — separar `src/engine/engine.js` em unidades puras cobertas por Vitest
+- [ ] **Versionamento de diagramas** — histórico de snapshots com diff visual
+
+## Deploy (GitHub Pages)
+
+O workflow `.github/workflows/deploy.yml` builda e publica automaticamente a cada push em `main` (requer **Settings → Pages → Source: GitHub Actions** no repositório).
+
+## Licença
+
+MIT
