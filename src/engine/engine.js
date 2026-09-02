@@ -1,4 +1,4 @@
-// Motor Meridian — toda a mecânica do app (parser, layout, editor, colabs, export).
+// Motor Meridian — toda a mecânica do app (parser, layout, editor, export).
 // Organizado em blocos marcados com /* ══════════ NN-nome ══════════ */ — edite aqui mesmo.
 
 export function mountEngine() {
@@ -997,7 +997,7 @@ export function mountEngine() {
         dragState = { ent, ox: p.x - ent.x, oy: p.y - ent.y, moved: false };
         scene.setPointerCapture(e.pointerId);
         ent.g.classList.add('dragging');
-        if (selectedId !== ent.name) { selectedId = ent.name; updateFocus(); peerSend({ t: 'sel', ent: ent.name }); }
+        if (selectedId !== ent.name) { selectedId = ent.name; updateFocus(); }
     }
     scene.addEventListener('pointerdown', e => {
         if (e.button === 1) { e.preventDefault(); }
@@ -1035,7 +1035,7 @@ export function mountEngine() {
         }
         if (panState) {
             scene.classList.remove('panning');
-            if (!panState.moved) { selectedId = null; updateFocus(); peerSend({ t: 'sel', ent: null }); }
+            if (!panState.moved) { selectedId = null; updateFocus(); }
             panState = null;
         }
     }
@@ -1207,7 +1207,6 @@ export function mountEngine() {
     function savePositions() {
         for (const e of model.entities) positions[e.name] = { x: e.x, y: e.y };
         store.set('pos', JSON.stringify(positions));
-        peerSend({ t: 'pos', pos: positions });
     }
     function animateTo(targets, dur, done) {
         animating = true;
@@ -1278,7 +1277,6 @@ export function mountEngine() {
         clone.setAttribute('viewBox', `${bb.x - pad} ${bb.y - pad} ${W} ${H}`);
         clone.setAttribute('width', W); clone.setAttribute('height', H);
         clone.querySelector('#gGuides')?.remove();
-        clone.querySelector('#gPeers')?.remove();
         clone.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
         for (const c of ['enter', 'dragging', 'dim', 'on', 'dimt', 'sel', 'drawing'])
             clone.querySelectorAll('.' + c).forEach(el => el.classList.remove(c));
@@ -1333,8 +1331,8 @@ export function mountEngine() {
     }
 
 
-    /* ══════════ 15-collab.js ══════════ */
-    /* ══════════ compartilhar URL & colaboração ao vivo ══════════ */
+    /* ══════════ 15-share.js ══════════ */
+    /* ══════════ compartilhar URL ══════════ */
     function shareURL() {
         const enc = btoa(unescape(encodeURIComponent(src.value))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
         return location.origin + location.pathname + '#d=' + enc;
@@ -1348,143 +1346,6 @@ export function mountEngine() {
         try { await navigator.clipboard.writeText(shareURL()); toast('Link de compartilhamento copiado'); }
         catch (e) { toast('Não foi possível copiar o link', 'err'); }
     };
-
-    const PEER_COLORS = ['#E67E3C', '#3C9BE6', '#8E5CE6', '#E63C6D', '#2FA85C', '#C9A227'];
-    const me = (() => {
-        const savedName = store.get('meName');
-        const id = Math.random().toString(36).slice(2, 8);
-        let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-        return { id, name: savedName || 'Dev-' + id.slice(0, 3).toUpperCase(), color: PEER_COLORS[h % PEER_COLORS.length] };
-    })();
-    const peersBar = $('peersBar'), gPeers = $('gPeers'), peerCurLayer = $('peerCursors');
-    let bc = null, peers = new Map(), applyingRemote = false;
-    const curLine = () => src.value.slice(0, src.selectionStart).split('\n').length - 1;
-
-    /* ── cursores remotos no editor ── */
-    let showPeerCur = store.get('peerCur') !== '0';
-    function renderPeerCursors() {
-        peerCurLayer.textContent = '';
-        if (!showPeerCur) return;
-        const cs = getComputedStyle(src);
-        const lh = parseFloat(cs.lineHeight) || 21.25, padT = parseFloat(cs.paddingTop) || 14, padL = parseFloat(cs.paddingLeft) || 60;
-        monoCtx.font = cs.font;
-        const cw = monoCtx.measureText('M').width || 7.5;
-        const totalLines = src.value.split('\n').length;
-        for (const p of peers.values()) {
-            if (p.line == null || p.line < 0 || p.line >= totalLines) continue;
-            /* linha+coluna direto do peer — estável mesmo com códigos momentaneamente divergentes */
-            const lineTxt = src.value.split('\n')[p.line] || '';
-            const col = clamp(p.col ?? 0, 0, lineTxt.length);
-            const d = document.createElement('div');
-            d.className = 'peer-caret';
-            d.style.left = (padL + col * cw - src.scrollLeft) + 'px';
-            d.style.top = (padT + p.line * lh - src.scrollTop) + 'px';
-            d.style.background = p.peer.color;
-            d.innerHTML = `<b style="background:${p.peer.color}">${esc(p.peer.name)}</b>`;
-            peerCurLayer.append(d);
-        }
-    }
-    const btnPeerCur = $('btnPeerCur');
-    function setPeerCur(v) {
-        showPeerCur = v;
-        btnPeerCur.setAttribute('aria-pressed', String(v));
-        store.set('peerCur', v ? '1' : '0');
-        renderPeerCursors();
-    }
-    btnPeerCur.onclick = () => setPeerCur(!showPeerCur);
-    /* só reflete o estado salvo — renderPeerCursors roda depois do load (usa monoCtx) */
-    btnPeerCur.setAttribute('aria-pressed', String(showPeerCur));
-
-    function renderPeers() {
-        peersBar.textContent = '';
-        [...peers.values()].forEach(p => {
-            const c = document.createElement('span');
-            c.className = 'peer-chip'; c.style.setProperty('--pc', p.peer.color);
-            c.innerHTML = `<i></i>${esc(p.peer.name)}`;
-            peersBar.append(c);
-        });
-        /* marca no gutter a linha onde cada peer está editando */
-        [...gutterIn.children].forEach(el => { el.style.boxShadow = ''; });
-        for (const p of peers.values()) {
-            if (p.line >= 0 && p.line < gutterIn.children.length)
-                gutterIn.children[p.line].style.boxShadow = `inset 3px 0 0 ${p.peer.color}`;
-        }
-        /* contorno colorido na entidade que o peer está editando */
-        gPeers.textContent = '';
-        for (const p of peers.values()) {
-            const e = p.ent && byId[p.ent];
-            if (!e) continue;
-            gPeers.append(svgEl('rect', {
-                x: e.x - 3, y: e.y - 3, width: e.w + 6, height: e.h + 6, rx: 12,
-                fill: 'none', stroke: p.peer.color, 'stroke-width': 2, 'stroke-dasharray': '6 4', opacity: .9
-            }));
-            const t = svgEl('text', {
-                x: e.x, y: e.y - 10, fill: p.peer.color,
-                style: 'font:600 11px var(--sans,sans-serif)'
-            });
-            t.textContent = p.peer.name; gPeers.append(t);
-        }
-    }
-    function prunePeers() {
-        const now = Date.now(); let ch = false;
-        for (const [id, p] of peers) if (now - p.lastSeen > 7000) { peers.delete(id); ch = true; }
-        if (ch) renderPeers();
-    }
-    function handlePeerMsg(m) {
-        if (!m.peer || m.peer.id === me.id) return;
-        const p = peers.get(m.peer.id) ?? { peer: m.peer, line: -1, ent: null, lastSeen: 0 };
-        p.peer = m.peer; p.lastSeen = Date.now();
-        if (m.t === 'ping') { if (m.line != null) p.line = m.line; if (m.col != null) p.col = m.col; }
-        if (m.t === 'hello') { peerSend({ t: 'ping', line: curLine() }); peerSend({ t: 'state', code: src.value }); }
-        if (m.t === 'state' && m.code != null && !applyingRemote && Date.now() - lastPushAt > 1500 && m.code !== src.value) {
-            applyingRemote = true;
-            pushHistory();
-            /* guarda minha posição por linha/coluna pra não pular cursor */
-            const myPos = src.selectionStart;
-            const myLine = src.value.slice(0, myPos).split('\n').length - 1;
-            const myCol = myPos - (src.value.lastIndexOf('\n', myPos - 1) + 1);
-            src.value = m.code;
-            const lines = m.code.split('\n');
-            const l = Math.min(myLine, lines.length - 1);
-            const np = lines.slice(0, l).reduce((s, x) => s + x.length + 1, 0) + Math.min(myCol, lines[l].length);
-            src.selectionStart = src.selectionEnd = np;
-            lastLen = m.code.length; lastCaret = np; lastSel = np; snipState = null;
-            renderHighlight(); updateGutter(); applySource(m.code); renderPeerCursors();
-            applyingRemote = false;
-            toast(`${m.peer.name} editou o diagrama`);
-        }
-        if (m.t === 'pos' && m.pos && !dragState) {
-            positions = m.pos;
-            for (const e of model.entities) {
-                const q = m.pos[e.name];
-                if (q) { e.x = q.x; e.y = q.y; e.g?.setAttribute('transform', `translate(${e.x} ${e.y})`); }
-            }
-            updateEdgeGeometry(); updateMinimap();
-        }
-        if (m.t === 'sel') p.ent = m.ent ?? null;
-        peers.set(m.peer.id, p);
-        renderPeers();
-        renderPeerCursors();
-    }
-    function peerSend(m) { try { bc && bc.postMessage({ ...m, peer: me }); } catch (e) { } }
-    let curPending = false;
-    function curPing(force) {
-        const payload = () => {
-            const pos = src.selectionStart;
-            peerSend({ t: 'ping', line: src.value.slice(0, pos).split('\n').length - 1, col: pos - (src.value.lastIndexOf('\n', pos - 1) + 1) });
-        };
-        if (force) { payload(); curPending = false; return; }
-        /* throttle de 90ms com disparo garantido no fim — cursor remoto quase em tempo real */
-        if (curPending) return;
-        curPending = true;
-        setTimeout(() => { curPending = false; payload(); }, 90);
-    }
-    try {
-        bc = new BroadcastChannel('meridian-collab');
-        bc.onmessage = ev => handlePeerMsg(ev.data);
-        peerSend({ t: 'hello' });
-        setInterval(() => { curPing(true); prunePeers(); }, 2500);
-    } catch (e) { }
 
     function setTheme(t) {
         document.documentElement.dataset.theme = t; store.set('theme', t);
@@ -1750,23 +1611,11 @@ export function mountEngine() {
     /* ══════════ 19-editor-events.js ══════════ */
     /* ══════════ editor: eventos ══════════ */
     let applyT = null;
-    let autoFmt = store.get('autoFmt') === '1';
     function scheduleApply() {
         if (document.getElementById('snipMenu').classList.contains('open')) return; /* aguarda snippet ser resolvido */
         clearTimeout(applyT);
         applyT = setTimeout(() => {
-            const ok = applySource(src.value);
-            if (ok && !applyingRemote) peerSend({ t: 'state', code: src.value });
-            if (ok && autoFmt && (!model.type || model.type === 'er')) {
-                /* só reformata se a saída difere (evita loop) */
-                const f = buildFormatted();
-                if (f != null && f !== src.value) {
-                    pushHistory();
-                    src.value = f;
-                    lastLen = f.length; lastCaret = 0; lastSel = 0; snipState = null;
-                    renderHighlight(); updateGutter(); applySource(f);
-                }
-            }
+            applySource(src.value);
         }, 600);
     }
     function applyNow(showToast) {
@@ -1791,13 +1640,11 @@ export function mountEngine() {
         renderHighlight(); scheduleApply();
         renderAc();
         updateGutter();
-        curPing();
-        renderPeerCursors();
         beforeState = snapState();
     });
-    src.addEventListener('scroll', () => { hl.scrollTop = src.scrollTop; hl.scrollLeft = src.scrollLeft; closeAc(); gutterIn.style.transform = `translateY(${-src.scrollTop}px)`; renderPeerCursors(); });
+    src.addEventListener('scroll', () => { hl.scrollTop = src.scrollTop; hl.scrollLeft = src.scrollLeft; closeAc(); gutterIn.style.transform = `translateY(${-src.scrollTop}px)`; });
     src.addEventListener('blur', () => setTimeout(closeAc, 120));
-    src.addEventListener('click', () => { snipState = null; closeAc(); updateGutter(); curPing(); renderPeerCursors(); editorFocusEntity(); });
+    src.addEventListener('click', () => { snipState = null; closeAc(); updateGutter(); editorFocusEntity(); });
 
     /* clique no editor → foca/destaca a entidade no canvas */
     function entityAtCaret(pos) {
@@ -1824,13 +1671,11 @@ export function mountEngine() {
         const name = entityAtCaret(src.selectionStart);
         const e = name && byId[name];
         if (!e || animating) return;
-        if (selectedId !== name) { selectedId = name; updateFocus(); peerSend({ t: 'sel', ent: name }); }
+        if (selectedId !== name) { selectedId = name; updateFocus(); }
         const { rw, rh } = vs();
         const w = clamp(rw / 3.2, e.w * 3, rw / 1.6);
         animateCam({ x: e.x + e.w / 2 - w / 2, y: e.y + e.h / 2 - w * (rh / rw) / 2, w }, 420);
     }
-    src.addEventListener('keyup', () => { curPing(); });
-    try { document.addEventListener('selectionchange', () => { if (document.activeElement === src) { curPing(); } }); } catch (e) { }
     src.addEventListener('keydown', e => {
         const menuOpen = snipMenu.classList.contains('open');
         if (menuOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
@@ -1956,14 +1801,6 @@ export function mountEngine() {
     });
     $('btnApply').onclick = () => applyNow(true);
     $('btnFormat').onclick = () => formatCode();
-    const btnAutoFmt = $('btnAutoFmt');
-    function setAutoFmt(v) {
-        autoFmt = v;
-        btnAutoFmt.setAttribute('aria-pressed', String(v));
-        store.set('autoFmt', v ? '1' : '0');
-    }
-    btnAutoFmt.onclick = () => setAutoFmt(!autoFmt);
-    setAutoFmt(autoFmt);
     $('btnOrganize').onclick = organize;
     const layoutSel = $('layoutSel');
     layoutSel.addEventListener('change', () => {
