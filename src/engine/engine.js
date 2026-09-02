@@ -1355,8 +1355,11 @@ export function mountEngine() {
     $('btnTheme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
     $('btnPanel').onclick = () => {
         panel.classList.toggle('hidden');
-        store.set('panel', panel.classList.contains('hidden') ? '0' : '1');
+        const hidden = panel.classList.contains('hidden');
+        store.set('panel', hidden ? '0' : '1');
+        document.body.classList.toggle('code-hidden', hidden);
     };
+    $('btnShowCode').onclick = () => $('btnPanel').click();
     $('btnExport').onclick = e => { e.stopPropagation(); exportMenu.classList.toggle('open'); };
     document.addEventListener('click', e => { if (!e.target.closest('.menu-wrap')) exportMenu.classList.remove('open'); });
     exportMenu.querySelectorAll('button').forEach(b => b.onclick = () => {
@@ -1920,7 +1923,10 @@ export function mountEngine() {
     /* ══════════ inicialização ══════════ */
     async function init() {
         setTheme(store.get('theme') || 'light');
-        if (store.get('panel') === '0' || innerWidth < 861) panel.classList.add('hidden');
+        if (store.get('panel') === '0' || innerWidth < 861) {
+            panel.classList.add('hidden');
+            document.body.classList.add('code-hidden');
+        }
         try {
             await Promise.all([
                 document.fonts.load('600 12px "Space Grotesk"'),

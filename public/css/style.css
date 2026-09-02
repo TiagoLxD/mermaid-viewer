@@ -1132,6 +1132,22 @@ textarea::-webkit-scrollbar-thumb {
     border-bottom-color: var(--accent)
 }
 
+/* botão flutuante: reaparece com o painel de código oculto */
+#btnShowCode {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 20;
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow)
+}
+
+body.code-hidden #btnShowCode {
+    display: inline-flex
+}
+
 .docs-body {
     flex: 1;
     overflow-y: auto;

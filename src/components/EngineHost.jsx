@@ -46,8 +46,6 @@ export default function EngineHost() {
                     <span className="vsep" />
                     <button id="btnDocs" className="btn ghost icon-btn" data-icon="help" title="Ajuda: documentação da linguagem ( ? )"
                         aria-label="Ajuda / documentação"></button>
-                    <button id="btnPanel" className="btn ghost icon-btn" data-icon="panel" title="Mostrar / ocultar código"
-                        aria-label="Mostrar ou ocultar painel de código"></button>
                     <button id="btnShare" className="btn ghost icon-btn" data-icon="users" title="Copiar link de compartilhamento do diagrama"
                         aria-label="Compartilhar"></button>
                     <div className="menu-wrap">
@@ -69,6 +67,8 @@ export default function EngineHost() {
                         <div className="actions">
                             <button id="btnFormat" className="btn sm"><span data-icon="wand" data-size="13" />Formatar</button>
                             <button id="btnApply" className="btn sm primary">Aplicar <span className="kbd">⏎</span></button>
+                            <button id="btnPanel" className="btn ghost icon-btn" data-icon="panel" title="Ocultar painel de código"
+                                aria-label="Ocultar painel de código"></button>
                         </div>
                     </div>
                     <div className="code-wrap">
@@ -86,6 +86,8 @@ export default function EngineHost() {
 
                 <section id="stage">
                     <div id="canvas">
+                        <button id="btnShowCode" className="btn ghost icon-btn" data-icon="panel"
+                            title="Mostrar painel de código" aria-label="Mostrar painel de código"></button>
                         <svg id="scene">
                             <g id="gEdges"></g>
                             <g id="gTables"></g>
