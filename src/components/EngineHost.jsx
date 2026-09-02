@@ -48,8 +48,6 @@ export default function EngineHost() {
                         aria-label="Ajuda / documentação"></button>
                     <button id="btnPanel" className="btn ghost icon-btn" data-icon="panel" title="Mostrar / ocultar código"
                         aria-label="Mostrar ou ocultar painel de código"></button>
-                    <button id="btnCopy" className="btn ghost icon-btn" data-icon="copy" title="Copiar código Mermaid"
-                        aria-label="Copiar código"></button>
                     <button id="btnShare" className="btn ghost icon-btn" data-icon="users" title="Copiar link de compartilhamento do diagrama"
                         aria-label="Compartilhar"></button>
                     <div className="menu-wrap">

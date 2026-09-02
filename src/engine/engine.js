@@ -1357,10 +1357,6 @@ export function mountEngine() {
         panel.classList.toggle('hidden');
         store.set('panel', panel.classList.contains('hidden') ? '0' : '1');
     };
-    $('btnCopy').onclick = async () => {
-        try { await navigator.clipboard.writeText(src.value); toast('Código Mermaid copiado'); }
-        catch (e) { toast('Não foi possível copiar', 'err'); }
-    };
     $('btnExport').onclick = e => { e.stopPropagation(); exportMenu.classList.toggle('open'); };
     document.addEventListener('click', e => { if (!e.target.closest('.menu-wrap')) exportMenu.classList.remove('open'); });
     exportMenu.querySelectorAll('button').forEach(b => b.onclick = () => {
