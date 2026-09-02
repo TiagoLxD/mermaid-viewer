@@ -1008,6 +1008,11 @@ textarea::-webkit-scrollbar-thumb {
     color: var(--ink)
 }
 
+.tb-btn.on {
+    color: var(--accent);
+    background: var(--surface2)
+}
+
 .tb-zoom {
     min-width: 48px;
     height: 31px;

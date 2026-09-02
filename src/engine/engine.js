@@ -44,6 +44,8 @@ export function mountEngine() {
         minus: '<path d="M5 12h14"/>',
         plus: '<path d="M12 5v14M5 12h14"/>',
         fit: '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>',
+        lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+        unlock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
         book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
         help: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
         x: '<path d="M18 6 6 18M6 6l12 12"/>'
@@ -615,7 +617,7 @@ export function mountEngine() {
     /* ══════════ 06-tables.js ══════════ */
     /* ══════════ construção das tabelas ══════════ */
     let model = { entities: [], relations: [] }, byId = {}, adj = {}, edgeNodes = [], positions = {};
-    let hoverId = null, selectedId = null, animating = false;
+    let hoverId = null, selectedId = null, animating = false, previewMode = false;
 
     function buildTableNode(ent, animate, idx) {
         const g = svgEl('g', { class: 'table' }); g.dataset.id = ent.name;
@@ -1042,7 +1044,7 @@ export function mountEngine() {
     }
 
     function onTableDown(e, ent) {
-        if (e.button !== 0 || animating) return;
+        if (e.button !== 0 || animating || previewMode) return;
         e.stopPropagation();
         const p = screenToWorld(e.clientX, e.clientY);
         dragState = { ent, ox: p.x - ent.x, oy: p.y - ent.y, moved: false };
@@ -1850,9 +1852,21 @@ export function mountEngine() {
         const tag = document.activeElement && document.activeElement.tagName;
         if (e.key === '?' && tag !== 'TEXTAREA' && tag !== 'INPUT') { e.preventDefault(); toggleDocs(); }
         if (!e.ctrlKey && !e.metaKey && !e.altKey && tag !== 'TEXTAREA' && (e.key === 'f' || e.key === 'F')) organize();
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && tag !== 'TEXTAREA' && (e.key === 'p' || e.key === 'P')) setPreview(!previewMode);
     });
     $('btnFormat').onclick = () => formatCode();
     $('btnOrganize').onclick = organize;
+    const btnPreview = $('btnPreview');
+    function setPreview(v) {
+        previewMode = v;
+        btnPreview.setAttribute('aria-pressed', String(v));
+        btnPreview.classList.toggle('on', v);
+        btnPreview.innerHTML = icon(v ? 'lock' : 'unlock', 15);
+        btnPreview.title = v ? 'Sair do modo prévia (P) — tabelas travadas' : 'Modo prévia: navegue sem mover tabelas (P)';
+        store.set('preview', v ? '1' : '0');
+    }
+    btnPreview.onclick = () => setPreview(!previewMode);
+    setPreview(store.get('preview') === '1');
     const layoutSel = $('layoutSel');
     layoutSel.addEventListener('change', () => {
         store.set('layout', layoutSel.value);

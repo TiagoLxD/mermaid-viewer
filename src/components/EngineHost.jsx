@@ -109,6 +109,8 @@ export default function EngineHost() {
                             <button className="tb-btn" id="btnZoomIn" data-icon="plus" title="Ampliar zoom"
                                 aria-label="Ampliar zoom"></button>
                             <span className="tb-sep" />
+                            <button className="tb-btn" id="btnPreview" data-icon="unlock" title="Modo prévia: navegue sem mover tabelas (P)"
+                                aria-label="Modo prévia" aria-pressed="false"></button>
                             <button className="tb-btn" id="btnFit" data-icon="fit" title="Enquadrar diagrama"
                                 aria-label="Enquadrar"></button>
                         </div>
@@ -253,6 +255,8 @@ export default function EngineHost() {
                         <h4>Atalhos</h4>
                         <div className="sc-row"><span>Reorganizar o diagrama</span><span className="keys"><span
                             className="key">F</span></span></div>
+                        <div className="sc-row"><span>Modo prévia (travar tabelas)</span><span className="keys"><span
+                            className="key">P</span></span></div>
                         <div className="sc-row"><span>Aplicar o código</span><span className="keys"><span className="key">Ctrl</span><span
                             className="key">⏎</span></span></div>
                         <div className="sc-row"><span>Enquadrar tudo</span><span className="keys"><span className="key">duplo
