@@ -298,6 +298,29 @@ select:hover {
     background: var(--surface2)
 }
 
+.menu .menu-opt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 11px;
+    font: 500 12px var(--sans);
+    color: var(--ink2);
+    cursor: pointer;
+    border-top: 1px solid var(--line);
+    margin-top: 4px;
+    user-select: none
+}
+
+.menu .menu-opt:hover {
+    color: var(--ink)
+}
+
+.menu .menu-opt input {
+    accent-color: var(--accent);
+    margin: 0
+}
+
 .menu small {
     color: var(--ink3);
     font-size: 10.5px;

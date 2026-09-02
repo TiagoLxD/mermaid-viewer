@@ -1,10 +1,7 @@
 import { useEffect } from 'react';
 import { mountEngine } from '../engine/engine.js';
 
-/**
- * Shell React: renderiza a MESMA estrutura de DOM do monólito (mesmos IDs)
- * e entrega o controle ao motor legado (js/00..22) — mecânica intacta.
- */
+
 export default function EngineHost() {
     useEffect(() => { mountEngine(); }, []);
     return (
@@ -55,6 +52,7 @@ export default function EngineHost() {
                             <button data-x="mmd">Código Mermaid <small>arquivo .mmd para versionar</small></button>
                             <button data-x="svg">SVG <small>vetorial, editável em qualquer editor</small></button>
                             <button data-x="png">PNG <small>imagem rasterizada em 2×</small></button>
+                            <label className="menu-opt"><input type="checkbox" id="optTransp" /> Fundo transparente</label>
                         </div>
                     </div>
                     <button id="btnTheme" className="btn ghost icon-btn" title="Alternar tema" aria-label="Alternar tema"></button>
@@ -96,8 +94,8 @@ export default function EngineHost() {
                         </svg>
                         <div id="toolbar">
                             <select id="layoutSel" className="tb-select" title="Modo de organização automática">
-                                <option value="force">Forças</option>
-                                <option value="layered">Camadas</option>
+                                <option value="layered">Hierárquico</option>
+                                <option value="force">Orgânico</option>
                                 <option value="compact">Compacta</option>
                             </select>
                             <button className="tb-btn" id="btnOrganize" data-icon="wand" title="Reorganizar no modo selecionado (F)"
