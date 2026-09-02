@@ -1427,7 +1427,7 @@ export function mountEngine() {
         const wrap = document.querySelector('.code-wrap');
         return {
             x: clamp(parseFloat(cs.paddingLeft) + colTxt.length * cw - src.scrollLeft + 2, 0, wrap.clientWidth - 260),
-            y: clamp(parseFloat(cs.paddingTop) + (line + 1) * lh - src.scrollTop + 4, 0, wrap.clientHeight - 160)
+            y: clamp(parseFloat(cs.paddingTop) + line * lh - src.scrollTop + 2, 0, wrap.clientHeight - 160)
         };
     }
     function closeAc() { snipMenu.classList.remove('open'); acList = []; acCtx = null; }
