@@ -410,7 +410,7 @@ export function mountEngine() {
 
     /* ══════════ 05-layout.js ══════════ */
     /* ══════ layout: espaçamento garantido — usado por todos os modos ══════ */
-    const GAP_X = 78, GAP_Y = 66;
+    const GAP_X = 110, GAP_Y = 100;
 
     function resolveOverlaps(nodes, iters, gx = GAP_X, gy = GAP_Y) {
         for (let it = 0; it < iters; it++) {
@@ -489,6 +489,11 @@ export function mountEngine() {
                 const d = Math.sqrt(dx * dx + dy * dy) + 0.01;
                 const f = (d - desired) * 0.09, ux = dx / d * f, uy = dy / d * f;
                 fx[i] += ux; fy[i] += uy; fx[j] -= ux; fy[j] -= uy;
+                /* viés de leitura: a tabela “filha” (lado B, onde fica a FK)
+                   desliza suavemente para baixo da “pai” — reduz cruzamentos
+                   e dá hierarquia ao modo forças sem engessar */
+                const bias = 7 * (0.35 + cool);
+                fy[i] -= bias; fy[j] += bias;
             }
             for (let i = 0; i < n; i++) {
                 fx[i] += (cx0 - nodes[i].x) * 0.02; fy[i] += (cy0 - nodes[i].y) * 0.02;
@@ -499,7 +504,8 @@ export function mountEngine() {
 
     /* modo Camadas — hierarquia de cima para baixo (pais → filhas),
        colunas ordenadas por barycenter para reduzir cruzamentos */
-    function layeredInto(nodes, links, n) {
+    function layeredInto(nodes, links, n, GX = GAP_X, GY = GAP_Y) {
+    const GAP_X = GX, GAP_Y = GY; /* respiro extra no modo hierárquico */
         const succ = Array.from({ length: n }, () => []), pred = Array.from({ length: n }, () => []);
         for (const [i, j] of links) { succ[i].push(j); pred[j].push(i); }
         const level = new Array(n).fill(0);
@@ -527,7 +533,7 @@ export function mountEngine() {
             }
         }
         const posX = rows.map(row => {
-            let x = 0; return row.map(i => { const v = x; x += nodes[i].w + GAP_X; return v; });
+            let x = 0; return row.map(i => { const v = x; x += nodes[i].w + GX; return v; });
         });
         for (let it = 0; it < 24; it++) {
             rows.forEach((row, r) => {
@@ -538,6 +544,68 @@ export function mountEngine() {
                         posX[r][k] += (cx - nodes[i].w / 2 - posX[r][k]) * 0.5;
                     }
                 });
+                /* separação primeiro: o max-pass abre espaço movendo o
+                   vizinho esquerdo, para o pull abaixo não bater nele */
+                for (let k = 1; k < row.length; k++) {
+                    const min = posX[r][k - 1] + nodes[row[k - 1]].w + GX;
+                    if (posX[r][k] < min) posX[r][k] = min;
+                }
+                for (let k = row.length - 2; k >= 0; k--) {
+                    const max = posX[r][k + 1] - nodes[row[k]].w - GX;
+                    if (posX[r][k] > max) posX[r][k] = max;
+                }
+                /* pai com filhos em linhas distantes: desliza até o eixo
+                   deles por último — na próxima iteração o max-pass abre
+                   o espaço que faltar movendo os vizinhos */
+                row.forEach((i, k) => {
+                    const dist = succ[i].filter(x => level[x] !== level[i] + 1);
+                    if (dist.length) {
+                        const cx2 = dist.reduce((s, x) => s + posX[level[x]][xIdx[x]] + nodes[x].w / 2, 0) / dist.length;
+                        posX[r][k] += (cx2 - nodes[i].w / 2 - posX[r][k]) * 0.12;
+                    }
+                });
+            });
+        }
+        /* agrupa a família: pais com MENOS filhos reivindicam primeiro
+           (o pai solitário ancora o filho embaixo dele), e qualquer filho
+           pode ser agrupado — cada filho pertence a um só pai */
+        const claimed = new Set();
+        const parentsList = [];
+        rows.forEach((row, r) => row.forEach(i => { if (succ[i].length) parentsList.push([r, i]); }));
+        parentsList.sort((a, b) => succ[a[1]].length - succ[b[1]].length);
+        for (const [r, i] of parentsList) {
+            const kids = succ[i].filter(k => !claimed.has(k));
+            if (!kids.length) continue;
+            kids.forEach(k => claimed.add(k));
+            kids.sort((a, b) => posX[level[a]][xIdx[a]] - posX[level[b]][xIdx[b]]);
+            const totalW = kids.reduce((s, k) => s + nodes[k].w, 0) + GX * (kids.length - 1);
+            let start = posX[r][xIdx[i]] + nodes[i].w / 2 - totalW / 2;
+            for (const k of kids) {
+                const rr = level[k], kk = xIdx[k];
+                const min = kk > 0 ? posX[rr][kk - 1] + nodes[rows[rr][kk - 1]].w + GX : -Infinity;
+                const x = Math.max(start, min);
+                posX[rr][kk] = x;
+                start = x + nodes[k].w + GX;
+            }
+        }
+        /* alinhamento pai↔filho distante + separação, iterando até estabilizar.
+           O max-pass é essencial: abre espaço puxando os vizinhos esquerdos */
+        for (let rep = 0; rep < 24; rep++) {
+            rows.forEach((row, r) => {
+                for (const i of row) {
+                    const others = succ[i].filter(k => level[k] !== level[i] + 1);
+                    if (!others.length) continue;
+                    const cx = others.reduce((s, k) => s + posX[level[k]][xIdx[k]] + nodes[k].w / 2, 0) / others.length;
+                    const want = cx - nodes[i].w / 2;
+                    const k = xIdx[i];
+                    /* se o pai precisa passar da esquerda, o prefixo inteiro
+                       da linha desliza junto (gaps internos preservados) */
+                    if (k > 0) {
+                        const limit = posX[r][k - 1] + nodes[row[k - 1]].w + GAP_X;
+                        if (want < limit) for (let j = 0; j < k; j++) posX[r][j] -= limit - want;
+                    }
+                    posX[r][k] = want;
+                }
                 for (let k = 1; k < row.length; k++) {
                     const min = posX[r][k - 1] + nodes[row[k - 1]].w + GAP_X;
                     if (posX[r][k] < min) posX[r][k] = min;
@@ -548,11 +616,16 @@ export function mountEngine() {
                 }
             });
         }
+        /* offset ÚNICO para todas as linhas: qualquer diferença de off
+           entre linhas quebraria os eixos pai↔filho já alinhados */
+        const widths = posX.map((row, r) => row.length ? row[row.length - 1] + nodes[rows[r][row.length - 1]].w : 0);
+        const maxW = Math.max(0, ...widths);
+        const off = (maxW - Math.max(...widths)) / 2;
         let y = 0;
         rows.forEach((row, r) => {
-            const h = Math.max(...row.map(i => nodes[i].h));
-            row.forEach((i, k) => { nodes[i].x = posX[r][k]; nodes[i].y = y + (h - nodes[i].h) / 2; });
-            y += h + GAP_Y;
+            const h = row.length ? Math.max(...row.map(i => nodes[i].h)) : 0;
+            row.forEach((i, k) => { nodes[i].x = posX[r][k] + off; nodes[i].y = y + (h - nodes[i].h) / 2; });
+            y += h + GY;
         });
     }
 
@@ -585,6 +658,32 @@ export function mountEngine() {
         });
     }
 
+    /* alinhamento em eixos: repete até estabilizar (nada mais se move) */
+    function alignPass(nodes) {
+        for (let rep = 0; rep < 60; rep++) {
+            const before = nodes.map(nd => nd.x.toFixed(1) + ',' + nd.y.toFixed(1)).join(';');
+            for (const axis of ['x', 'y']) {
+                const size = axis === 'x' ? 'w' : 'h';
+                const c = nodes.map(nd => nd[axis] + nd[size] / 2);
+                const order = [...nodes.keys()].sort((a, b) => c[a] - c[b]);
+                let i = 0;
+                while (i < order.length) {
+                    let j = i;
+                    while (j + 1 < order.length && c[order[j + 1]] - c[order[i]] < 46) j++;
+                    const group = order.slice(i, j + 1);
+                    if (group.length > 1) {
+                        const mean = group.reduce((s, k) => s + c[k], 0) / group.length;
+                        for (const k of group) nodes[k][axis] += mean - c[k];
+                    }
+                    i = j + 1;
+                }
+            }
+            resolveOverlaps(nodes, 60);
+            const after = nodes.map(nd => nd.x.toFixed(1) + ',' + nd.y.toFixed(1)).join(';');
+            if (after === before) break;
+        }
+    }
+
     function layoutPositions(entities, relations, fromCurrent, mode = 'force') {
         const n = entities.length; if (!n) return new Map();
         /* sequência: participantes espalhados em linha, ordem de declaração */
@@ -598,11 +697,16 @@ export function mountEngine() {
         const nodes = entities.map(e => ({ x: e.x ?? 0, y: e.y ?? 0, w: e.w, h: e.h }));
         const links = [];
         for (const r of relations) { const i = map.get(r.a), j = map.get(r.b); if (i != null && j != null && i !== j) links.push([i, j]); }
-        if (mode === 'layered') layeredInto(nodes, links, n);
-        else if (mode === 'compact') compactInto(nodes, links, n);
-        else forceInto(nodes, links, fromCurrent);
-        resolveOverlaps(nodes, 150);
-        if (mode !== 'compact') edgeClearance(nodes, links, mode === 'force' ? 6 : 3);
+        if (mode === 'layered') {
+            /* hierárquico já sai separado e alinhado do layeredInto;
+               resolveOverlaps/edgeClearagem globais só desalinham as famílias */
+            layeredInto(nodes, links, n, GAP_X + 60, GAP_Y + 80);
+        } else if (mode === 'compact') compactInto(nodes, links, n);
+        else {
+            forceInto(nodes, links, fromCurrent); alignPass(nodes);
+            resolveOverlaps(nodes, 150);
+            edgeClearance(nodes, links, 6);
+        }
         let mnX = Infinity, mnY = Infinity;
         for (const nd of nodes) { mnX = Math.min(mnX, nd.x); mnY = Math.min(mnY, nd.y); }
         const out = new Map();
@@ -839,7 +943,7 @@ export function mountEngine() {
         const bo = 38 * ms, po = 14 * ms;
         /* várias ligações na mesma face da entidade: espalha as âncoras ao longo
            da borda para pés de galinha e selos de cardinalidade não se empilhar */
-        const FACE_GAP = 30 * ms;
+        const FACE_GAP = 42 * ms; /* selo tem ~34px: gap precisa ser maior que ele */
         const groups = new Map(), items = [];
         for (const E of edgeNodes) {
             if (E.seq) { updateSeqEdge(E); continue; }
@@ -872,34 +976,266 @@ export function mountEngine() {
             const o = clamp(off, -lim, lim);
             return P.dx ? { x: P.x, y: P.y + o, dx: P.dx, dy: P.dy } : { x: P.x + o, y: P.y, dx: P.dx, dy: P.dy };
         };
-        /* anti-colisão de rótulos: empurra verticalmente o primeiro que sobrepõe */
-        const placed = [];
+        /* ── roteamento ortogonal (estilo dbdiagram): sai reto da face,
+           dobra no canal do meio, entra reto na face oposta ── */
+        const R = 9;
+        /* H-V-H com dobra no canal `mid` (com cantos arredondados) */
+        const hvh = (x1, y1, mid, y2, x2) => {
+            if (Math.abs(y2 - y1) < 1) return `M${x1} ${y1}H${x2}`;
+            const sy = y2 > y1 ? 1 : -1;
+            const r = Math.max(1, Math.min(R, Math.abs(mid - x1), Math.abs(x2 - mid), Math.abs(y2 - y1) / 2));
+            return `M${x1} ${y1}H${mid - r}Q${mid} ${y1} ${mid} ${y1 + sy * r}V${y2 - sy * r}Q${mid} ${y2} ${mid + (x2 >= mid ? r : -r)} ${y2}H${x2}`;
+        };
+        /* V-H-V com dobra no canal `mid` */
+        const vhv = (x1, y1, mid, x2, y2) => {
+            if (Math.abs(x2 - x1) < 1) return `M${x1} ${y1}V${y2}`;
+            const sx = x2 > x1 ? 1 : -1;
+            const r = Math.max(1, Math.min(R, Math.abs(mid - y1), Math.abs(y2 - mid), Math.abs(x2 - x1) / 2));
+            return `M${x1} ${y1}V${mid - r}Q${x1} ${mid} ${x1 + sx * r} ${mid}H${x2 - sx * r}Q${x2} ${mid} ${x2} ${mid + (y2 >= mid ? r : -r)}V${y2}`;
+        };
+        /* pass 1: espalha âncoras e calcula canal do meio de cada rota */
+        /* rota completa livre: testa os 3 segmentos (ida, canal, volta) */
+        /* obstáculo expandido (14px) para o canal; 4px para os trechos de ponta */
+        const hHitM = (y, x1, x2, sa, sb, m) => model.entities.some(e => {
+            if (e === sa || e === sb) return false;
+            return y > e.y - m && y < e.y + e.h + m && e.x < Math.max(x1, x2) - 2 && e.x + e.w > Math.min(x1, x2) + 2;
+        });
+        const vHitM = (x, y1, y2, sa, sb, m) => model.entities.some(e => {
+            if (e === sa || e === sb) return false;
+            return x > e.x - m && x < e.x + e.w + m && e.y < Math.max(y1, y2) - 2 && e.y + e.h > Math.min(y1, y2) + 2;
+        });
+        /* escolhe o canal com a rota mais livre; retorna também quantos
+           trechos continuam bloqueados (para acionar o contorno) */
+        const routeHVH = (A, B, sa, sb) => {
+            const mid = (A.x + B.x) / 2, lo = Math.min(A.y, B.y), hi = Math.max(A.y, B.y);
+            let best = mid, bestScore = Infinity;
+            for (let d = 0; d <= 6000; d += 8) {
+                for (const c of d ? [mid - d, mid + d] : [mid]) {
+                    let score = 0;
+                    if (vHitM(c, lo, hi, sa, sb, 14)) score++;
+                    if (hHitM(A.y, A.x, c, sa, sb, 4)) score++;
+                    if (hHitM(B.y, c, B.x, sa, sb, 4)) score++;
+                    if (!score) return { c, score: 0 };
+                    if (score < bestScore) { bestScore = score; best = c; }
+                }
+            }
+            return { c: best, score: bestScore };
+        };
+        const routeVHV = (A, B, sa, sb) => {
+            const mid = (A.y + B.y) / 2, lo = Math.min(A.x, B.x), hi = Math.max(A.x, B.x);
+            let best = mid, bestScore = Infinity;
+            for (let d = 0; d <= 6000; d += 8) {
+                for (const c of d ? [mid - d, mid + d] : [mid]) {
+                    let score = 0;
+                    if (hHitM(c, lo, hi, sa, sb, 14)) score++;
+                    if (vHitM(A.x, A.y, c, sa, sb, 4)) score++;
+                    if (vHitM(B.x, c, B.y, sa, sb, 4)) score++;
+                    if (!score) return { c, score: 0 };
+                    if (score < bestScore) { bestScore = score; best = c; }
+                }
+            }
+            return { c: best, score: bestScore };
+        };
+        /* tabelas dentro do corredor entre as duas âncoras (expandido) */
+        const corridorBlocks = (A, B, sa, sb) => {
+            const lo = Math.min(A.x, B.x) - 14, hi = Math.max(A.x, B.x) + 14;
+            const lo2 = Math.min(A.y, B.y) - 14, hi2 = Math.max(A.y, B.y) + 14;
+            const out = [];
+            for (const e of model.entities) {
+                if (e === sa || e === sb) continue;
+                if (e.x + e.w < lo || e.x > hi || e.y + e.h < lo2 || e.y > hi2) continue;
+                out.push(e);
+            }
+            return out;
+        };
+        /* contorna o bloco de tabelas por cima ou por baixo (o mais próximo) */
+        const rowBlocks = (x1, x2, y, sa, sb) => {
+            const lo = Math.min(x1, x2), hi = Math.max(x1, x2), out = [];
+            for (const e of model.entities) {
+                if (e === sa || e === sb) continue;
+                if (e.y >= y || e.y + e.h <= y) continue;
+                if (e.x + e.w <= lo || e.x >= hi) continue;
+                out.push(e);
+            }
+            return out;
+        };
+        const colBlocks = (y1, y2, x, sa, sb) => {
+            const lo = Math.min(y1, y2), hi = Math.max(y1, y2), out = [];
+            for (const e of model.entities) {
+                if (e === sa || e === sb) continue;
+                if (e.x >= x || e.x + e.w <= x) continue;
+                if (e.y + e.h <= lo || e.y >= hi) continue;
+                out.push(e);
+            }
+            return out;
+        };
+        /* contorna o bloco de tabelas por cima ou por baixo (o mais próximo) */
+        const detourH = (x1, y, x2, blocks) => {
+            const sx = x2 > x1 ? 1 : -1;
+            const top = Math.min(...blocks.map(t => t.y)), bot = Math.max(...blocks.map(t => t.y + t.h));
+            const yd = Math.abs(y - (top - 46)) <= Math.abs((bot + 46) - y) ? top - 46 : bot + 46;
+            const off1 = x1 + sx * 26, off2 = x2 - sx * 26, sy = yd > y ? 1 : -1, r = Math.min(R, 24);
+            return { d: `M${x1} ${y}H${off1 - sx * r}Q${off1} ${y} ${off1} ${y + sy * r}V${yd - sy * r}Q${off1} ${yd} ${off1 + sx * r} ${yd}H${off2 - sx * r}Q${off2} ${yd} ${off2} ${yd - sy * r}V${y + sy * r}Q${off2} ${y} ${off2 + sx * r} ${y}H${x2}`, yd };
+        };
+        const detourV = (x, y1, y2, blocks) => {
+            const sy = y2 > y1 ? 1 : -1;
+            const left = Math.min(...blocks.map(t => t.x)), right = Math.max(...blocks.map(t => t.x + t.w));
+            const xd = Math.abs(x - (left - 46)) <= Math.abs((right + 46) - x) ? left - 46 : right + 46;
+            const off1 = y1 + sy * 26, off2 = y2 - sy * 26, sx = xd > x ? 1 : -1, r = Math.min(R, 24);
+            return { d: `M${x} ${y1}V${off1 - sy * r}Q${x} ${off1} ${x + sx * r} ${off1}H${xd - sx * r}Q${xd} ${off1} ${xd} ${off1 + sy * r}V${off2 - sy * r}Q${xd} ${off2} ${xd - sx * r} ${off2}H${x + sx * r}Q${x} ${off2} ${x} ${off2 + sy * r}V${y2}`, xd };
+        };
+        for (const it of items) {
+            it.pA = spread(it.A, it.a, it.aOff);
+            it.pB = spread(it.B, it.b, it.bOff);
+            const { pA, pB } = it;
+            if (it.E.self || it.E.seq) continue;
+            if (pA.dx !== 0 && pB.dx !== 0)
+                it.chan = routeHVH(pA, pB, it.a, it.b);
+            else if (pA.dy !== 0 && pB.dy !== 0)
+                it.chan = routeVHV(pA, pB, it.a, it.b);
+            else it.chan = null;
+        }
+        /* canais coincidentes (linhas paralelas) ganham desvio de 12px */
+        const bins = new Map();
+        for (const it of items) {
+            if (it.chan == null) continue;
+            const k = Math.round(it.chan / 8);
+            if (!bins.has(k)) bins.set(k, []);
+            bins.get(k).push(it);
+        }
+        for (const g of bins.values()) g.forEach((it, i) => { it.chan += (i - (g.length - 1) / 2) * 12; });
+        /* pass 2: monta os caminhos, símbolos, selos e rótulos */
+        const placed = [], placedBadges = [];
         const boxOf = (x, y, w) => ({ x: x - w / 2 - 4, y: y - 12, w: w + 8, h: 24 });
         const hit = bx => placed.some(p => Math.abs(bx.x - p.x) < (bx.w + p.w) / 2 && Math.abs(bx.y - p.y) < (bx.h + p.h) / 2);
         for (const it of items) {
             const E = it.E;
-            const A = spread(it.A, it.a, it.aOff), B = spread(it.B, it.b, it.bOff);
-            const dist = Math.hypot(B.x - A.x, B.y - A.y);
-            const off = clamp(dist * 0.45, 40, 150);
-            const c1x = A.x + A.dx * off, c1y = A.y + A.dy * off, c2x = B.x + B.dx * off, c2y = B.y + B.dy * off;
-            E.line.setAttribute('d', `M${A.x} ${A.y}C${c1x} ${c1y} ${c2x} ${c2y} ${B.x} ${B.y}`);
+            const A = it.pA, B = it.pB;
+            let d, lx, ly;
+            if (E.self) {
+                const dist = Math.hypot(B.x - A.x, B.y - A.y);
+                const off = clamp(dist * 0.45, 40, 150);
+                const c1x = A.x + A.dx * off, c1y = A.y + A.dy * off, c2x = B.x + B.dx * off, c2y = B.y + B.dy * off;
+                d = `M${A.x} ${A.y}C${c1x} ${c1y} ${c2x} ${c2y} ${B.x} ${B.y}`;
+                lx = (A.x + 3 * c1x + 3 * c2x + B.x) / 8; ly = (A.y + 3 * c1y + 3 * c2y + B.y) / 8;
+            } else if (A.dx !== 0 && B.dx !== 0) {
+                /* faces verticais com sobreposição de altura → linha reta:
+                   desliza as âncoras para a faixa comum em vez de dobrar */
+                const oLo = Math.max(it.a.y, it.b.y) + 16, oHi = Math.min(it.a.y + it.a.h, it.b.y + it.b.h) - 16;
+                const sy = clamp((A.y + B.y) / 2, oLo, Math.max(oLo, oHi));
+                const canStraight = oHi > oLo && !hHitM(sy, A.x, B.x, it.a, it.b, 2);
+                if (Math.abs(A.y - B.y) < 1) {
+                    const blocks = rowBlocks(A.x, B.x, A.y, it.a, it.b);
+                    if (blocks.length) {
+                        const det = detourH(A.x, A.y, B.x, blocks);
+                        d = det.d; lx = (A.x + B.x) / 2; ly = det.yd;
+                    } else { d = `M${A.x} ${A.y}H${B.x}`; lx = (A.x + B.x) / 2; ly = A.y; }
+                } else if (canStraight) {
+                    A.y = sy; B.y = sy;
+                    d = `M${A.x} ${sy}H${B.x}`; lx = (A.x + B.x) / 2; ly = sy;
+                } else {
+                    const res = routeHVH(A, B, it.a, it.b);
+                    it.chan = res.c;
+                    if (res.score) {
+                        /* sem canal livre: contorna o corredor por cima/baixo */
+                        const blocks = corridorBlocks(A, B, it.a, it.b);
+                        if (blocks.length) {
+                            const sx = B.x > A.x ? 1 : -1, r = Math.min(R, 24);
+                            const top = Math.min(...blocks.map(t => t.y)), bot = Math.max(...blocks.map(t => t.y + t.h));
+                            const midY = (A.y + B.y) / 2;
+                            const yd = Math.abs(midY - (top - 46)) <= Math.abs((bot + 46) - midY) ? top - 46 : bot + 46;
+                            const off1 = A.x + sx * 26, off2 = B.x - sx * 26;
+                            const sy1 = yd > A.y ? 1 : -1, sy2 = yd > B.y ? -1 : 1;
+                            d = `M${A.x} ${A.y}H${off1 - sx * r}Q${off1} ${A.y} ${off1} ${A.y + sy1 * r}V${yd - sy1 * r}Q${off1} ${yd} ${off1 + sx * r} ${yd}H${off2 - sx * r}Q${off2} ${yd} ${off2} ${yd + sy2 * r}V${B.y - sy2 * r}Q${off2} ${B.y} ${off2 + sx * r} ${B.y}H${B.x}`;
+                            lx = (off1 + off2) / 2; ly = yd;
+                        } else { d = hvh(A.x, A.y, res.c, B.y, B.x); lx = res.c; ly = (A.y + B.y) / 2; }
+                    } else { d = hvh(A.x, A.y, res.c, B.y, B.x); lx = res.c; ly = (A.y + B.y) / 2; }
+                }
+            } else if (A.dy !== 0 && B.dy !== 0) {
+                /* faces horizontais com sobreposição de largura → linha reta */
+                const oLo = Math.max(it.a.x, it.b.x) + 16, oHi = Math.min(it.a.x + it.a.w, it.b.x + it.b.w) - 16;
+                const sx = clamp((A.x + B.x) / 2, oLo, Math.max(oLo, oHi));
+                const canStraight = oHi > oLo && !vHitM(sx, A.y, B.y, it.a, it.b, 2);
+                if (Math.abs(A.x - B.x) < 1) {
+                    A.x = B.x; /* âncora A acompanha o spread de B */
+                    const blocks = colBlocks(A.y, B.y, A.x, it.a, it.b);
+                    if (blocks.length) {
+                        const det = detourV(A.x, A.y, B.y, blocks);
+                        d = det.d; lx = det.xd; ly = (A.y + B.y) / 2;
+                    } else { d = `M${A.x} ${A.y}V${B.y}`; lx = A.x; ly = (A.y + B.y) / 2; }
+                } else if (canStraight) {
+                    A.x = sx; B.x = sx;
+                    d = `M${sx} ${A.y}V${B.y}`; lx = sx; ly = (A.y + B.y) / 2;
+                } else {
+                    const res = routeVHV(A, B, it.a, it.b);
+                    it.chan = res.c;
+                    if (res.score) {
+                        /* sem canal livre: contorna o corredor pela esquerda/direita */
+                        const blocks = corridorBlocks(A, B, it.a, it.b);
+                        if (blocks.length) {
+                            const sy = B.y > A.y ? 1 : -1, r = Math.min(R, 24);
+                            const left = Math.min(...blocks.map(t => t.x)), right = Math.max(...blocks.map(t => t.x + t.w));
+                            const midX = (A.x + B.x) / 2;
+                            const xd = Math.abs(midX - (left - 46)) <= Math.abs((right + 46) - midX) ? left - 46 : right + 46;
+                            const off1 = A.y + sy * 26, off2 = B.y - sy * 26;
+                            const sx1 = xd > A.x ? 1 : -1, sx2 = xd > B.x ? -1 : 1;
+                            d = `M${A.x} ${A.y}V${off1 - sy * r}Q${A.x} ${off1} ${A.x + sx1 * r} ${off1}H${xd - sx1 * r}Q${xd} ${off1} ${xd} ${off1 + sy * r}V${off2 - sy * r}Q${xd} ${off2} ${xd + sx2 * r} ${off2}H${B.x - sx2 * r}Q${B.x} ${off2} ${B.x} ${off2 + sy * r}V${B.y}`;
+                            lx = xd; ly = (off1 + off2) / 2;
+                        } else { d = vhv(A.x, A.y, res.c, B.x, B.y); lx = (A.x + B.x) / 2; ly = res.c; }
+                    } else { d = vhv(A.x, A.y, res.c, B.x, B.y); lx = (A.x + B.x) / 2; ly = res.c; }
+                }
+            } else if (A.dx !== 0) {
+                d = hvh(A.x, A.y, B.x, B.y, B.x);
+                lx = B.x; ly = (A.y + B.y) / 2;
+            } else {
+                d = vhv(A.x, A.y, B.y, B.x, B.y);
+                lx = (A.x + B.x) / 2; ly = B.y;
+            }
+            E.line.setAttribute('d', d);
             const rotA = Math.atan2(A.dy, A.dx) * 180 / Math.PI, rotB = Math.atan2(B.dy, B.dx) * 180 / Math.PI;
             E.ma.setAttribute('transform', `translate(${A.x} ${A.y}) rotate(${rotA}) scale(${ms})`);
             E.mb.setAttribute('transform', `translate(${B.x} ${B.y}) rotate(${rotB}) scale(${ms})`);
-            E.ba.setAttribute('transform', `translate(${A.x + A.dx * bo + A.dy * po} ${A.y + A.dy * bo - A.dx * po}) scale(${ms})`);
-            E.bb.setAttribute('transform', `translate(${B.x + B.dx * bo + B.dy * po} ${B.y + B.dy * bo - B.dx * po}) scale(${ms})`);
-            const mx = (A.x + 3 * c1x + 3 * c2x + B.x) / 8, my = (A.y + 3 * c1y + 3 * c2y + B.y) / 8;
-            let ly = my;
-            const bx = boxOf(mx, my, E.lw);
+            /* rótulo primeiro (anti-colisão entre rótulos) */
+            const bx = boxOf(lx, ly, E.lw);
             if (hit(bx)) {
-                for (const d of [-26, 26, -52, 52, -78, 78]) {
-                    if (!hit(boxOf(mx, my + d, E.lw))) { ly = my + d; break; }
+                for (const dd of [-26, 26, -52, 52, -78, 78]) {
+                    if (!hit(boxOf(lx, ly + dd, E.lw))) { ly = ly + dd; break; }
                 }
             }
-            placed.push(boxOf(mx, ly, E.lw));
-            E.lg.setAttribute('transform', `translate(${mx} ${ly})`);
+            placed.push(boxOf(lx, ly, E.lw));
+            E.lg.setAttribute('transform', `translate(${lx} ${ly})`);
             E.lr.setAttribute('x', -E.lw / 2); E.lr.setAttribute('y', -9);
             E.lt.setAttribute('y', 3.5);
+            /* selos de cardinalidade: nunca sobre outro selo nem sobre rótulo */
+            if (!E.rel.simple) {
+                const bw = (tw(CARD_TEXT[E.rel.ac], F.card) + 10) * ms;
+                const coll = (x, y, w) => placedBadges.some(p => Math.abs(x - p.x) < (w + p.w) / 2 + 4 && Math.abs(y - p.y) < 20)
+                    || placed.some(p => Math.abs(x - p.x) < (w / ms + p.w) / 2 + 4 && Math.abs(y - p.y / ms) < 20);
+                const put = (anchor, txt) => {
+                    const w = (tw(txt, F.card) + 10) * ms;
+                    const x0 = anchor.x + anchor.dx * bo + anchor.dy * po, y0 = anchor.y + anchor.dy * bo - anchor.dx * po;
+                    let px = x0, py = y0;
+                    if (coll(px, py, w)) {
+                        for (const extra of [16, 32, 48, 64, 80]) {
+                            const nx = anchor.x + anchor.dx * (bo + extra) + anchor.dy * po, ny = anchor.y + anchor.dy * (bo + extra) - anchor.dx * po;
+                            if (!coll(nx, ny, w)) { px = nx; py = ny; break; }
+                        }
+                        if (coll(px, py, w)) {
+                            for (const per of [26, -26, 52, -52, 78, -78]) {
+                                const nx = x0 + anchor.dy * per, ny = y0 - anchor.dx * per;
+                                if (!coll(nx, ny, w)) { px = nx; py = ny; break; }
+                            }
+                        }
+                    }
+                    placedBadges.push({ x: px, y: py, w });
+                    return `translate(${px} ${py}) scale(${ms})`;
+                };
+                E.ba.setAttribute('transform', put(A, CARD_TEXT[E.rel.ac]));
+                E.bb.setAttribute('transform', put(B, CARD_TEXT[E.rel.bc]));
+            } else {
+                E.ba.setAttribute('transform', `translate(${A.x + A.dx * bo + A.dy * po} ${A.y + A.dy * bo - A.dx * po}) scale(${ms})`);
+                E.bb.setAttribute('transform', `translate(${B.x + B.dx * bo + B.dy * po} ${B.y + B.dy * bo - B.dx * po}) scale(${ms})`);
+            }
         }
     }
 
@@ -1005,6 +1341,44 @@ export function mountEngine() {
         applyView();
     }, { passive: false });
 
+    /* ── gestos de toque: 1 dedo = pan/arrasto, 2 dedos = pinch zoom ── */
+    const touchPtrs = new Map();
+    let pinch = null;
+    canvas.addEventListener('pointerdown', e => {
+        if (e.pointerType !== 'touch') return;
+        touchPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (touchPtrs.size === 2) {
+            /* segundo dedo: aborta pan/arrasto em curso e inicia o pinch */
+            if (dragState) { dragState.ent.g.classList.remove('dragging'); dragState = null; }
+            panState = null;
+            scene.classList.remove('panning');
+            const [p1, p2] = [...touchPtrs.values()];
+            pinch = { d: Math.hypot(p1.x - p2.x, p1.y - p2.y), w: cam.w };
+        }
+    });
+    canvas.addEventListener('pointermove', e => {
+        if (!touchPtrs.has(e.pointerId)) return;
+        touchPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (touchPtrs.size >= 2 && pinch) {
+            const [p1, p2] = [...touchPtrs.values()];
+            const cx = (p1.x + p2.x) / 2, cy = (p1.y + p2.y) / 2;
+            const d = Math.hypot(p1.x - p2.x, p1.y - p2.y) || 1;
+            const before = screenToWorld(cx, cy);
+            const { rw } = vs();
+            cam.w = clamp(pinch.w * pinch.d / d, rw / 7, rw * 6);
+            normalizeH();
+            const after = screenToWorld(cx, cy);
+            cam.x += before.x - after.x; cam.y += before.y - after.y;
+            applyView();
+        }
+    });
+    const endTouch = e => {
+        touchPtrs.delete(e.pointerId);
+        if (touchPtrs.size < 2) pinch = null;
+    };
+    canvas.addEventListener('pointerup', endTouch);
+    canvas.addEventListener('pointercancel', endTouch);
+
 
     /* ══════════ 09-drag.js ══════════ */
     /* ══════════ arrastar tabelas + guias inteligentes ══════════ */
@@ -1083,7 +1457,27 @@ export function mountEngine() {
             const ent = dragState.ent;
             ent.g.classList.remove('dragging');
             gGuides.textContent = '';
-            if (dragState.moved) savePositions();
+            if (dragState.moved) {
+                /* nunca termina sobre outra tabela: empurra só ela para fora */
+                for (let rep = 0; rep < 60; rep++) {
+                    let overlapped = false;
+                    for (const o of model.entities) {
+                        if (o === ent) continue;
+                        const dx = (ent.x + ent.w / 2) - (o.x + o.w / 2), dy = (ent.y + ent.h / 2) - (o.y + o.h / 2);
+                        const px = (ent.w + o.w) / 2 + GAP_X - Math.abs(dx), py = (ent.h + o.h) / 2 + GAP_Y - Math.abs(dy);
+                        if (px > 0 && py > 0) {
+                            overlapped = true;
+                            if (px / (ent.w + o.w) < py / (ent.h + o.h)) ent.x += (dx >= 0 ? 1 : -1) * px;
+                            else ent.y += (dy >= 0 ? 1 : -1) * py;
+                        }
+                    }
+                    if (!overlapped) break;
+                }
+                ent.g.setAttribute('transform', `translate(${ent.x} ${ent.y})`);
+                for (const e2 of model.entities) positions[e2.name] = { x: e2.x, y: e2.y };
+                store.set('pos', JSON.stringify(positions));
+                updateEdgeGeometry(); updateMinimap();
+            }
             dragState = null;
         }
         if (panState) {
@@ -1339,8 +1733,10 @@ export function mountEngine() {
         try { appCss = await (await fetch('css/style.css')).text(); } catch (e) { /* file://: exporta só com vars + fontes */ }
         st.textContent = `:root{${vars}} ${appCss} ${await getFontCSS()}`;
         clone.insertBefore(st, clone.firstChild);
-        const bg = svgEl('rect', { x: bb.x - pad, y: bb.y - pad, width: W, height: H, fill: cssVar('--canvas') });
-        clone.insertBefore(bg, st.nextSibling);
+        if (store.get('transp') !== '1') {
+            const bg = svgEl('rect', { x: bb.x - pad, y: bb.y - pad, width: W, height: H, fill: cssVar('--canvas') });
+            clone.insertBefore(bg, st.nextSibling);
+        }
         return { str: new XMLSerializer().serializeToString(clone), W, H };
     }
     function downloadBlob(blob, name) {
@@ -1420,6 +1816,9 @@ export function mountEngine() {
         else if (b.dataset.x === 'png') exportPNG();
         else exportMMD();
     });
+    const optTransp = $('optTransp');
+    optTransp.checked = store.get('transp') === '1';
+    optTransp.onchange = () => store.set('transp', optTransp.checked ? '1' : '0');
 
     function toggleDocs(open) {
         const o = open ?? !docs.classList.contains('open');
@@ -1870,7 +2269,7 @@ export function mountEngine() {
     const layoutSel = $('layoutSel');
     layoutSel.addEventListener('change', () => {
         store.set('layout', layoutSel.value);
-        toast({ force: 'Organizando por forças', layered: 'Organizando em camadas', compact: 'Organizando compacto' }[layoutSel.value]);
+        toast({ force: 'Organização orgânica', layered: 'Organização hierárquica', compact: 'Organização compacta' }[layoutSel.value]);
         organize();
     });
     $('btnZoomIn').onclick = () => zoomBy(1.3);
@@ -2010,7 +2409,7 @@ export function mountEngine() {
         renderHighlight();
         updateGutter();
         applyView();
-        layoutSel.value = store.get('layout') || 'force';
+        layoutSel.value = store.get('layout') || 'layered';
         applySource(src.value, { resetLayout: !saved || !!shared, mode: layoutSel.value });
         fitView(true);
     }
