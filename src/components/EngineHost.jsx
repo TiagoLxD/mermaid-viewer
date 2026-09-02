@@ -44,8 +44,8 @@ export default function EngineHost() {
                         <span data-icon="chevD" data-size="14" />
                     </div>
                     <span className="vsep" />
-                    <button id="btnDocs" className="btn ghost icon-btn" data-icon="book" title="Documentação da linguagem ( ? )"
-                        aria-label="Documentação"></button>
+                    <button id="btnDocs" className="btn ghost icon-btn" data-icon="help" title="Ajuda: documentação da linguagem ( ? )"
+                        aria-label="Ajuda / documentação"></button>
                     <button id="btnPanel" className="btn ghost icon-btn" data-icon="panel" title="Mostrar / ocultar código"
                         aria-label="Mostrar ou ocultar painel de código"></button>
                     <button id="btnCopy" className="btn ghost icon-btn" data-icon="copy" title="Copiar código Mermaid"
