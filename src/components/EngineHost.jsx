@@ -64,9 +64,9 @@ export default function EngineHost() {
             <main id="app">
                 <aside id="panel">
                     <div className="panel-head">
+                        <span className="panel-title">Editor Mermaid</span>
                         <div className="actions">
                             <button id="btnFormat" className="btn sm"><span data-icon="wand" data-size="13" />Formatar</button>
-                            <button id="btnApply" className="btn sm primary">Aplicar <span className="kbd">⏎</span></button>
                             <button id="btnPanel" className="btn ghost icon-btn" data-icon="panel" title="Ocultar painel de código"
                                 aria-label="Ocultar painel de código"></button>
                         </div>

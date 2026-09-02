@@ -1801,7 +1801,6 @@ export function mountEngine() {
         if (e.key === '?' && tag !== 'TEXTAREA' && tag !== 'INPUT') { e.preventDefault(); toggleDocs(); }
         if (!e.ctrlKey && !e.metaKey && !e.altKey && tag !== 'TEXTAREA' && (e.key === 'f' || e.key === 'F')) organize();
     });
-    $('btnApply').onclick = () => applyNow(true);
     $('btnFormat').onclick = () => formatCode();
     $('btnOrganize').onclick = organize;
     const layoutSel = $('layoutSel');
