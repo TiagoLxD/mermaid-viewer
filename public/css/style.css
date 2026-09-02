@@ -1101,6 +1101,37 @@ textarea::-webkit-scrollbar-thumb {
     flex: none
 }
 
+#docsTabs {
+    display: flex;
+    gap: 2px;
+    padding: 6px 12px 0;
+    border-bottom: 1px solid var(--line);
+    flex: none;
+    overflow-x: auto
+}
+
+.dt-tab {
+    font: 600 11px var(--mono);
+    padding: 8px 12px;
+    border: 0;
+    background: none;
+    color: var(--ink3);
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color .15s
+}
+
+.dt-tab:hover {
+    color: var(--ink2)
+}
+
+.dt-tab.on {
+    color: var(--accent);
+    border-bottom-color: var(--accent)
+}
+
 .docs-body {
     flex: 1;
     overflow-y: auto;
@@ -1118,12 +1149,17 @@ textarea::-webkit-scrollbar-thumb {
     border: 3px solid var(--surface)
 }
 
-.docs-body section {
+.docs-body section[data-tab] {
+    display: none;
     padding: 16px 0 12px;
     border-bottom: 1px solid var(--line)
 }
 
-.docs-body section:last-child {
+.docs-body section[data-tab].on {
+    display: block
+}
+
+.docs-body section[data-tab].on:last-of-type {
     border-bottom: 0
 }
 

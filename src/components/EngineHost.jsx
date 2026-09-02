@@ -133,16 +133,23 @@ export default function EngineHost() {
                     <button id="btnDocsClose" className="btn ghost icon-btn" data-icon="x" title="Fechar (Esc)"
                         aria-label="Fechar documentação"></button>
                 </div>
+                <div id="docsTabs" role="tablist" aria-label="Tipo de diagrama">
+                    <button className="dt-tab on" data-tab="geral" role="tab" aria-selected="true">Geral</button>
+                    <button className="dt-tab" data-tab="er" role="tab" aria-selected="false">ER</button>
+                    <button className="dt-tab" data-tab="flow" role="tab" aria-selected="false">Fluxo</button>
+                    <button className="dt-tab" data-tab="seq" role="tab" aria-selected="false">Sequência</button>
+                    <button className="dt-tab" data-tab="class" role="tab" aria-selected="false">Classes</button>
+                </div>
                 <div className="docs-body">
 
-                    <section>
+                    <section data-tab="geral">
                         <h4>Como funciona</h4>
                         <p>O Meridian entende <b>quatro tipos de diagrama</b> Mermaid. A primeira linha do código define o
                             tipo: <code>erDiagram</code>, <code>flowchart</code>, <code>sequenceDiagram</code> ou
                             <code>classDiagram</code>. Use o seletor <b>“Tipo…”</b> no topo para começar um esqueleto em branco.</p>
                     </section>
 
-                    <section>
+                    <section data-tab="er">
                         <h4>Diagrama ER</h4>
                         <p>Cada linha descreve uma <b>relação</b> entre duas entidades; cada bloco <code>{'ENTIDADE { … }'}</code>
                             lista os <b>atributos</b>. O diagrama é redesenhado automaticamente conforme o código é digitado.
@@ -150,7 +157,7 @@ export default function EngineHost() {
                         <pre className="d-code" dangerouslySetInnerHTML={{ __html: "<span className=\"kw\">erDiagram</span>\n        USUARIO ||--o{ PEDIDO : realiza\n\n        USUARIO {\n            int id PK\n            string email UK\n        }" }}></pre>
                     </section>
 
-                    <section>
+                    <section data-tab="er">
                         <h4>Anatomia de uma relação</h4>
                         <pre
                             className="d-code">&lt;entidade-A&gt; &lt;card1&gt;&lt;linha&gt;&lt;card2&gt; &lt;entidade-B&gt; : rótulo</pre>
@@ -161,7 +168,7 @@ export default function EngineHost() {
                             cardinalidade por extenso, e o rótulo (<code>: realiza</code>) fica no meio da linha.</p>
                     </section>
 
-                    <section>
+                    <section data-tab="er">
                         <h4>Cardinalidades</h4>
                         <div className="rel-row"><code>|o · o|</code>
                             <div className="mini" data-rel="zero_one -- zero_one" /><span>zero ou um <b>0..1</b></span>
@@ -177,7 +184,7 @@ export default function EngineHost() {
                         </div>
                     </section>
 
-                    <section>
+                    <section data-tab="er">
                         <h4>Identificante × não-identificante</h4>
                         <p>A <b>linha</b> entre as cardinalidades define o traço do vínculo: <code>--</code> desenha linha
                             <b>sólida</b> (identificante — o filho não existe sem o pai) e <code>..</code> desenha linha
@@ -190,7 +197,7 @@ export default function EngineHost() {
                         </div>
                     </section>
 
-                    <section>
+                    <section data-tab="er">
                         <h4>Atributos</h4>
                         <pre className="d-code" dangerouslySetInnerHTML={{ __html: "USUARIO {\n        int id PK\n        string email UK\n        string telefone \"opcional\"\n    }" }}></pre>
                         <div className="keydef"><span className="pill pk">PK</span> chave primária — destacada no diagrama</div>
@@ -200,7 +207,7 @@ export default function EngineHost() {
                             passe o mouse sobre uma entidade para destacar todas as relações dela.</p>
                     </section>
 
-                    <section>
+                    <section data-tab="er">
                         <h4>Inserir gabarito de relação</h4>
                         <p>Clique para inserir no código, na posição do cursor:</p>
                         <div className="chip-row">
@@ -214,7 +221,7 @@ export default function EngineHost() {
                         </div>
                     </section>
 
-                    <section>
+                    <section data-tab="flow">
                         <h4>Flowchart</h4>
                         <p>Fluxos com <code>flowchart TD</code>. Cada nó tem um <b>id</b> e um formato: <code>[texto]</code>
                             retângulo, <code>(texto)</code> estádio (início/fim) e <code>{'{'}texto{'}'}</code> losango
@@ -223,7 +230,7 @@ export default function EngineHost() {
                         <pre className="d-code" dangerouslySetInnerHTML={{ __html: "<span className=\"kw\">flowchart TD</span>\n        Inicio[Carrinho] --&gt; E{Estoque?}\n        E --&gt;|sim| PG[Pagar]\n        E -.&gt;|não| CA[Aguardar]\n        PG --&gt; Fim[(Enviado)]" }}></pre>
                     </section>
 
-                    <section>
+                    <section data-tab="seq">
                         <h4>Diagrama de sequência</h4>
                         <p>Com <code>sequenceDiagram</code>, declare os participantes com <code>participant</code> (ou
                             <code>actor</code>, opcionalmente com <code>as Apelido</code>). Mensagens ligam dois
@@ -233,7 +240,7 @@ export default function EngineHost() {
                         <pre className="d-code" dangerouslySetInnerHTML={{ __html: "<span className=\"kw\">sequenceDiagram</span>\n        participant U as Usuário\n        participant A as API\n        U -&gt;&gt; A: login(email, senha)\n        A --&gt;&gt; U: token JWT" }}></pre>
                     </section>
 
-                    <section>
+                    <section data-tab="class">
                         <h4>Diagrama de classes</h4>
                         <p>Com <code>classDiagram</code>, relações entre classes usam setas próprias: <code>&lt;|--</code>
                             herança, <code>*--</code> composição, <code>o--</code> agregação, <code>--&gt;</code>
@@ -242,7 +249,7 @@ export default function EngineHost() {
                         <pre className="d-code" dangerouslySetInnerHTML={{ __html: "<span className=\"kw\">classDiagram</span>\n        Veiculo &lt;|-- Carro\n        Veiculo *-- Motor\n\n        class Carro {\n            +int portas\n            +abrirPortaMalas()\n        }" }}></pre>
                     </section>
 
-                    <section>
+                    <section data-tab="geral">
                         <h4>Atalhos</h4>
                         <div className="sc-row"><span>Reorganizar o diagrama</span><span className="keys"><span
                             className="key">F</span></span></div>

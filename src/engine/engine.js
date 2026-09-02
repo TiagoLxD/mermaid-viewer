@@ -1889,6 +1889,20 @@ export function mountEngine() {
         const [lc, conn, rc] = el.dataset.rel.split(' ');
         el.append(miniRel(lc, conn, rc));
     });
+    /* ── tabs da documentação ── */
+    const docsTabs = $('docsTabs');
+    const docsSections = [...document.querySelectorAll('#docs .docs-body section[data-tab]')];
+    function setDocsTab(tab) {
+        docsTabs.querySelectorAll('.dt-tab').forEach(b => {
+            const on = b.dataset.tab === tab;
+            b.classList.toggle('on', on);
+            b.setAttribute('aria-selected', String(on));
+        });
+        docsSections.forEach(s => s.classList.toggle('on', s.dataset.tab === tab));
+    }
+    docsTabs.querySelectorAll('.dt-tab').forEach(b => b.onclick = () => setDocsTab(b.dataset.tab));
+    setDocsTab('geral');
+
     function insertTemplate(tpl) {
         const s = src.selectionStart ?? src.value.length, e = src.selectionEnd ?? s;
         const before = src.value.slice(0, s), after = src.value.slice(e);
