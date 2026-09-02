@@ -55,8 +55,8 @@ export function mountEngine() {
     /* ══════════ exemplos ══════════ */
     const EXAMPLES = [
         {
-    name: 'E-commerce', code:
-        `erDiagram
+            name: 'E-commerce', code:
+                `erDiagram
         USUARIO ||--o{ PEDIDO : realiza
         USUARIO ||--o{ CARRINHO : possui
         PEDIDO ||--|{ ITEM_PEDIDO : contem
@@ -143,8 +143,8 @@ export function mountEngine() {
     string alt
         }`},
         {
-    name: 'Fluxo de pedido', code:
-        `flowchart TD
+            name: 'Fluxo de pedido', code:
+                `flowchart TD
         P[Pedido criado] --> E{Estoque disponível?}
         E -->|sim| PG[Processar pagamento]
         E -->|não| CA[Carrinho aguardando]
@@ -153,8 +153,8 @@ export function mountEngine() {
         CA --> E`
         },
         {
-    name: 'Autenticação (seq.)', code:
-        `sequenceDiagram
+            name: 'Autenticação (seq.)', code:
+                `sequenceDiagram
         participant U as Usuário
         participant A as API
         participant D as Banco de Dados
@@ -165,8 +165,8 @@ export function mountEngine() {
         A -->> U: token JWT`
         },
         {
-    name: 'Veículos (classes)', code:
-        `classDiagram
+            name: 'Veículos (classes)', code:
+                `classDiagram
         Veiculo <|-- Carro
         Veiculo <|-- Moto
         Veiculo *-- Motor
@@ -205,8 +205,8 @@ export function mountEngine() {
         const m = line.match(ATTR_RE); if (!m) return null;
         let rest = (m[3] || '').trim(); const keys = [];
         for (const k of ['PK', 'FK', 'UK']) {
-    const re = new RegExp('(?:^|\\s)' + k + '(?:\\s|$)');
-    if (re.test(rest)) { keys.push(k); rest = rest.replace(re, ' '); }
+            const re = new RegExp('(?:^|\\s)' + k + '(?:\\s|$)');
+            if (re.test(rest)) { keys.push(k); rest = rest.replace(re, ' '); }
         }
         let comment = '';
         const cm = rest.match(/"([^"]*)"/);
@@ -225,41 +225,41 @@ export function mountEngine() {
     function parseFlow(text) {
         const ents = new Map(), relations = [], errors = [];
         const ensure = (id, label, shape) => {
-    if (!ents.has(id)) ents.set(id, { name: id, attrs: [], label: label || id, shape: shape || 'rect' });
-    else { const e = ents.get(id); if (label) e.label = label; if (shape && shape !== 'rect') e.shape = shape; }
-    return ents.get(id);
+            if (!ents.has(id)) ents.set(id, { name: id, attrs: [], label: label || id, shape: shape || 'rect' });
+            else { const e = ents.get(id); if (label) e.label = label; if (shape && shape !== 'rect') e.shape = shape; }
+            return ents.get(id);
         };
         function addNode(seg) {
-    seg = seg.trim(); if (!seg) return null;
-    const m = seg.match(/^([A-Za-z_][\w\-.]*)\s*(\(\(|[\(\[\{])([^\)\}\]]*)[\)\}\]]+$/) || seg.match(/^([A-Za-z_][\w\-.]*)$/);
-    if (!m) return null;
-    const shapeRaw = m[2] || '';
-    const shape = shapeRaw.startsWith('(') ? 'stadium' : shapeRaw.startsWith('{') ? 'diamond' : 'rect';
-    ensure(m[1], (m[3] || '').trim(), shape);
-    return m[1];
+            seg = seg.trim(); if (!seg) return null;
+            const m = seg.match(/^([A-Za-z_][\w\-.]*)\s*(\(\(|[\(\[\{])([^\)\}\]]*)[\)\}\]]+$/) || seg.match(/^([A-Za-z_][\w\-.]*)$/);
+            if (!m) return null;
+            const shapeRaw = m[2] || '';
+            const shape = shapeRaw.startsWith('(') ? 'stadium' : shapeRaw.startsWith('{') ? 'diamond' : 'rect';
+            ensure(m[1], (m[3] || '').trim(), shape);
+            return m[1];
         }
         const OP = /(?:-->|-\.->|==>)\s*\|([^|]*)\||--\s+([^->]+?)\s+-->|-\.->|==>|-->|---/;
         for (const raw of text.split('\n')) {
-    const line = raw.trim();
-    if (!line || line.startsWith('%%') || /^(flowchart|graph|subgraph|end|classDef)\b/i.test(line)) continue;
-    let prevId = null, rest = line, pending = null, guard = 0;
-    while (rest && guard++ < 40) {
-        const m = rest.match(OP);
-        if (!m) {
-            const id = addNode(rest);
-            if (prevId && id && id !== prevId)
-                relations.push({ a: prevId, b: id, label: pending?.label || '', dash: !!pending?.dash, simple: true, aMk: 'none', bMk: pending?.arrow ? 'arrow' : 'none' });
-            break;
-        }
-        const left = rest.slice(0, m.index);
-        rest = rest.slice(m.index + m[0].length);
-        const id = addNode(left);
-        if (prevId && id && id !== prevId)
-            relations.push({ a: prevId, b: id, label: pending?.label || '', dash: !!pending?.dash, simple: true, aMk: 'none', bMk: pending?.arrow ? 'arrow' : 'none' });
-        if (id) prevId = id;
-        const core = m[0].replace(/\|[^|]*\|/, '');
-        pending = { arrow: core.includes('>'), dash: core.includes('.'), label: (m[1] ?? m[2] ?? '').trim() };
-    }
+            const line = raw.trim();
+            if (!line || line.startsWith('%%') || /^(flowchart|graph|subgraph|end|classDef)\b/i.test(line)) continue;
+            let prevId = null, rest = line, pending = null, guard = 0;
+            while (rest && guard++ < 40) {
+                const m = rest.match(OP);
+                if (!m) {
+                    const id = addNode(rest);
+                    if (prevId && id && id !== prevId)
+                        relations.push({ a: prevId, b: id, label: pending?.label || '', dash: !!pending?.dash, simple: true, aMk: 'none', bMk: pending?.arrow ? 'arrow' : 'none' });
+                    break;
+                }
+                const left = rest.slice(0, m.index);
+                rest = rest.slice(m.index + m[0].length);
+                const id = addNode(left);
+                if (prevId && id && id !== prevId)
+                    relations.push({ a: prevId, b: id, label: pending?.label || '', dash: !!pending?.dash, simple: true, aMk: 'none', bMk: pending?.arrow ? 'arrow' : 'none' });
+                if (id) prevId = id;
+                const core = m[0].replace(/\|[^|]*\|/, '');
+                pending = { arrow: core.includes('>'), dash: core.includes('.'), label: (m[1] ?? m[2] ?? '').trim() };
+            }
         }
         return { type: 'flow', entities: [...ents.values()], relations, errors };
     }
@@ -268,24 +268,24 @@ export function mountEngine() {
     function parseSeq(text) {
         const ents = new Map(), relations = [], errors = [];
         const ensure = (name, label) => {
-    if (!ents.has(name)) ents.set(name, { name, attrs: [], seq: true, label: label || name });
-    else if (label) ents.get(name).label = label;
-    return ents.get(name);
+            if (!ents.has(name)) ents.set(name, { name, attrs: [], seq: true, label: label || name });
+            else if (label) ents.get(name).label = label;
+            return ents.get(name);
         };
         let idx = 0;
         text.split('\n').forEach((raw, i) => {
-    const line = raw.trim();
-    if (!line || line.startsWith('%%') || /^sequenceDiagram\b/i.test(line)) return;
-    let m = line.match(/^(?:participant|actor)\s+([\w\-.]+)(?:\s+as\s+(.+))?$/i);
-    if (m) { ensure(m[1], (m[2] || '').trim() || m[1]); return; }
-    m = line.match(/^([\w\-.]+)\s*(-?>|-->>|->>|-x|--x|->)\s*([\w\-.]+)\s*:\s*(.*)$/);
-    if (m) {
-        ensure(m[1]); ensure(m[3]);
-        relations.push({ a: m[1], b: m[3], label: m[4].trim(), dash: m[2].startsWith('--'), simple: true, seq: true, idx: idx++, aMk: 'none', bMk: 'arrow' });
-        return;
-    }
-    if (/^(note|autonumber|activate|deactivate|loop|alt|else|end|opt|par|and|rect|box)\b/i.test(line)) return;
-    errors.push({ line: i + 1, msg: 'não entendi esta linha' });
+            const line = raw.trim();
+            if (!line || line.startsWith('%%') || /^sequenceDiagram\b/i.test(line)) return;
+            let m = line.match(/^(?:participant|actor)\s+([\w\-.]+)(?:\s+as\s+(.+))?$/i);
+            if (m) { ensure(m[1], (m[2] || '').trim() || m[1]); return; }
+            m = line.match(/^([\w\-.]+)\s*(-?>|-->>|->>|-x|--x|->)\s*([\w\-.]+)\s*:\s*(.*)$/);
+            if (m) {
+                ensure(m[1]); ensure(m[3]);
+                relations.push({ a: m[1], b: m[3], label: m[4].trim(), dash: m[2].startsWith('--'), simple: true, seq: true, idx: idx++, aMk: 'none', bMk: 'arrow' });
+                return;
+            }
+            if (/^(note|autonumber|activate|deactivate|loop|alt|else|end|opt|par|and|rect|box)\b/i.test(line)) return;
+            errors.push({ line: i + 1, msg: 'não entendi esta linha' });
         });
         return { type: 'seq', entities: [...ents.values()], relations, errors };
     }
@@ -296,28 +296,28 @@ export function mountEngine() {
         const ensure = n => { if (!ents.has(n)) ents.set(n, { name: n, attrs: [] }); return ents.get(n); };
         let cur = null;
         text.split('\n').forEach(raw => {
-    const line = raw.trim();
-    if (!line || line.startsWith('%%') || /^classDiagram\b/i.test(line)) return;
-    if (/^\}+\s*$/.test(line)) { cur = null; return; }
-    let m = line.match(/^([\w~.\-]+)\s*\{$/);
-    if (m) { cur = ensure(m[1]); return; }
-    if (cur) { cur.attrs.push({ type: '', name: line, keys: [], comment: '' }); return; }
-    m = line.match(/^class\s+([\w~.\-]+)\s*\{$/);
-    if (m) { cur = ensure(m[1]); return; }
-    m = line.match(/^class\s+([\w~.\-]+)/);
-    if (m) { ensure(m[1]); return; }
-    m = line.match(/^([\w~.\-]+)\s*(<\|--|--\|>|--\*|--o|\*--|o--|\.\.\|>|-->|\.\.|---)\s*([\w~.\-]+)(?:\s*:\s*(.*))?$/);
-    if (m) {
-        const map = {
-            '<|--': { aMk: 'tri', bMk: 'none', dash: false }, '--|>': { aMk: 'none', bMk: 'tri', dash: false },
-            '--*': { aMk: 'diamond', bMk: 'none', dash: false }, '*--': { aMk: 'none', bMk: 'diamond', dash: false },
-            '--o': { aMk: 'odiamond', bMk: 'none', dash: false }, 'o--': { aMk: 'none', bMk: 'odiamond', dash: false },
-            '..|>': { aMk: 'none', bMk: 'tri', dash: true }, '-->': { aMk: 'none', bMk: 'arrow', dash: false },
-            '..': { aMk: 'none', bMk: 'none', dash: true }, '---': { aMk: 'none', bMk: 'none', dash: false }
-        }[m[2]] || { aMk: 'none', bMk: 'none', dash: false };
-        ensure(m[1]); ensure(m[3]);
-        relations.push({ a: m[1], b: m[3], label: (m[4] || '').trim(), dash: map.dash, simple: true, aMk: map.aMk, bMk: map.bMk });
-    }
+            const line = raw.trim();
+            if (!line || line.startsWith('%%') || /^classDiagram\b/i.test(line)) return;
+            if (/^\}+\s*$/.test(line)) { cur = null; return; }
+            let m = line.match(/^([\w~.\-]+)\s*\{$/);
+            if (m) { cur = ensure(m[1]); return; }
+            if (cur) { cur.attrs.push({ type: '', name: line, keys: [], comment: '' }); return; }
+            m = line.match(/^class\s+([\w~.\-]+)\s*\{$/);
+            if (m) { cur = ensure(m[1]); return; }
+            m = line.match(/^class\s+([\w~.\-]+)/);
+            if (m) { ensure(m[1]); return; }
+            m = line.match(/^([\w~.\-]+)\s*(<\|--|--\|>|--\*|--o|\*--|o--|\.\.\|>|-->|\.\.|---)\s*([\w~.\-]+)(?:\s*:\s*(.*))?$/);
+            if (m) {
+                const map = {
+                    '<|--': { aMk: 'tri', bMk: 'none', dash: false }, '--|>': { aMk: 'none', bMk: 'tri', dash: false },
+                    '--*': { aMk: 'diamond', bMk: 'none', dash: false }, '*--': { aMk: 'none', bMk: 'diamond', dash: false },
+                    '--o': { aMk: 'odiamond', bMk: 'none', dash: false }, 'o--': { aMk: 'none', bMk: 'odiamond', dash: false },
+                    '..|>': { aMk: 'none', bMk: 'tri', dash: true }, '-->': { aMk: 'none', bMk: 'arrow', dash: false },
+                    '..': { aMk: 'none', bMk: 'none', dash: true }, '---': { aMk: 'none', bMk: 'none', dash: false }
+                }[m[2]] || { aMk: 'none', bMk: 'none', dash: false };
+                ensure(m[1]); ensure(m[3]);
+                relations.push({ a: m[1], b: m[3], label: (m[4] || '').trim(), dash: map.dash, simple: true, aMk: map.aMk, bMk: map.bMk });
+            }
         });
         return { type: 'class', entities: [...ents.values()], relations, errors };
     }
@@ -332,30 +332,30 @@ export function mountEngine() {
         const lines = text.split('\n');
         let inBlock = false, cur = null;
         for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].replace(/;\s*$/, '').trim();
-    if (!line || line.startsWith('%%')) continue;
-    if (!inBlock) {
-        if (/^erDiagram\b/.test(line)) continue;
-        const r = line.match(REL_RE);
-        if (r) {
-            ensure(r[1]); ensure(r[5]);
-            relations.push({
-                a: r[1], b: r[5], lc: r[2], conn: r[3], rc: r[4], label: r[6].replace(/^"|"$/g, '').trim(),
-                ac: CARDMAP[r[2]], bc: CARDMAP[r[4]], dash: r[3] === '..'
-            });
-            continue;
-        }
-        const o = line.match(OPEN_RE);
-        if (o) { inBlock = true; cur = ensure(o[1]); continue; }
-        if (CLOSE_RE.test(line)) continue;
-        if (SOLO_RE.test(line)) { ensure(line); continue; }
-        errors.push({ line: i + 1, msg: 'não entendi esta linha' });
-    } else {
-        if (CLOSE_RE.test(line)) { inBlock = false; cur = null; continue; }
-        const at = parseAttr(line);
-        if (at) { cur.attrs.push(at); }
-        else errors.push({ line: i + 1, msg: 'atributo inválido' });
-    }
+            const line = lines[i].replace(/;\s*$/, '').trim();
+            if (!line || line.startsWith('%%')) continue;
+            if (!inBlock) {
+                if (/^erDiagram\b/.test(line)) continue;
+                const r = line.match(REL_RE);
+                if (r) {
+                    ensure(r[1]); ensure(r[5]);
+                    relations.push({
+                        a: r[1], b: r[5], lc: r[2], conn: r[3], rc: r[4], label: r[6].replace(/^"|"$/g, '').trim(),
+                        ac: CARDMAP[r[2]], bc: CARDMAP[r[4]], dash: r[3] === '..'
+                    });
+                    continue;
+                }
+                const o = line.match(OPEN_RE);
+                if (o) { inBlock = true; cur = ensure(o[1]); continue; }
+                if (CLOSE_RE.test(line)) continue;
+                if (SOLO_RE.test(line)) { ensure(line); continue; }
+                errors.push({ line: i + 1, msg: 'não entendi esta linha' });
+            } else {
+                if (CLOSE_RE.test(line)) { inBlock = false; cur = null; continue; }
+                const at = parseAttr(line);
+                if (at) { cur.attrs.push(at); }
+                else errors.push({ line: i + 1, msg: 'atributo inválido' });
+            }
         }
         if (inBlock) errors.push({ line: lines.length, msg: 'bloco de entidade não fechado' });
         return { type: 'er', entities: [...ents.values()], relations, errors };
@@ -373,28 +373,28 @@ export function mountEngine() {
         count: '600 9px "JetBrains Mono", ui-monospace, monospace',
         label: '500 10px "JetBrains Mono", ui-monospace, monospace',
         card: '600 9.5px "JetBrains Mono", ui-monospace, monospace',
-            comment: 'italic 400 11px "JetBrains Mono", ui-monospace, monospace'
+        comment: 'italic 400 11px "JetBrains Mono", ui-monospace, monospace'
     };
     function tw(t, font) { mctx.font = font; return mctx.measureText(t).width; }
 
     function measureEntity(e) {
         if (model.type === 'flow') {
-    const lbl = e.label ?? e.name;
-    e.w = Math.max(90, Math.round(tw(lbl, F.name) + (e.shape === 'diamond' ? 90 : 44)));
-    e.h = e.shape === 'diamond' ? 84 : 46;
-    return;
+            const lbl = e.label ?? e.name;
+            e.w = Math.max(90, Math.round(tw(lbl, F.name) + (e.shape === 'diamond' ? 90 : 44)));
+            e.h = e.shape === 'diamond' ? 84 : 46;
+            return;
         }
         if (model.type === 'seq' || e.seq) {
-    e.w = Math.max(110, Math.round(tw(e.label ?? e.name, F.title) + 34));
-    e.h = 44;
-    return;
+            e.w = Math.max(110, Math.round(tw(e.label ?? e.name, F.title) + 34));
+            e.h = 44;
+            return;
         }
         let w = 170;
         const cwCm = Math.max(0, ...e.attrs.map(a => a.comment ? tw(a.comment, F.comment) + 12 : 0));
         e.commentW = Math.round(cwCm);
         for (const a of e.attrs) {
-    const bw = a.keys.reduce((s, k) => s + tw(k, F.key) + 12 + 5, 0);
-    w = Math.max(w, 14 + tw(a.name, F.name) + (a.keys.length ? 7 + bw : 0) + 12 + tw(a.type, F.type) + 14 + e.commentW);
+            const bw = a.keys.reduce((s, k) => s + tw(k, F.key) + 12 + 5, 0);
+            w = Math.max(w, 14 + tw(a.name, F.name) + (a.keys.length ? 7 + bw : 0) + 12 + tw(a.type, F.type) + 14 + e.commentW);
         }
         const cw = tw(String(e.attrs.length), F.count) + 12;
         w = Math.max(w, 14 + tw(e.name.toUpperCase(), F.title) * 1.14 + 10 + cw + 14 + (e.commentW || 0));
@@ -411,18 +411,18 @@ export function mountEngine() {
 
     function resolveOverlaps(nodes, iters, gx = GAP_X, gy = GAP_Y) {
         for (let it = 0; it < iters; it++) {
-    let any = false;
-    for (let i = 0; i < nodes.length; i++)for (let j = i + 1; j < nodes.length; j++) {
-        const a = nodes[i], b = nodes[j];
-        const dx = (a.x + a.w / 2) - (b.x + b.w / 2), dy = (a.y + a.h / 2) - (b.y + b.h / 2);
-        const px = (a.w + b.w) / 2 + gx - Math.abs(dx), py = (a.h + b.h) / 2 + gy - Math.abs(dy);
-        if (px > 0 && py > 0) {
-            any = true;
-            if (px / (a.w + b.w) < py / (a.h + b.h)) { const s = (dx >= 0 ? 1 : -1) * px / 2; a.x += s; b.x -= s; }
-            else { const s = (dy >= 0 ? 1 : -1) * py / 2; a.y += s; b.y -= s; }
-        }
-    }
-    if (!any) break;
+            let any = false;
+            for (let i = 0; i < nodes.length; i++)for (let j = i + 1; j < nodes.length; j++) {
+                const a = nodes[i], b = nodes[j];
+                const dx = (a.x + a.w / 2) - (b.x + b.w / 2), dy = (a.y + a.h / 2) - (b.y + b.h / 2);
+                const px = (a.w + b.w) / 2 + gx - Math.abs(dx), py = (a.h + b.h) / 2 + gy - Math.abs(dy);
+                if (px > 0 && py > 0) {
+                    any = true;
+                    if (px / (a.w + b.w) < py / (a.h + b.h)) { const s = (dx >= 0 ? 1 : -1) * px / 2; a.x += s; b.x -= s; }
+                    else { const s = (dy >= 0 ? 1 : -1) * py / 2; a.y += s; b.y -= s; }
+                }
+            }
+            if (!any) break;
         }
     }
 
@@ -430,27 +430,27 @@ export function mountEngine() {
        para as linhas não passarem por cima de entidades alheias */
     function edgeClearance(nodes, links, passes) {
         for (let p = 0; p < passes; p++) {
-    let moved = false;
-    for (const [i, j] of links) {
-        const a = nodes[i], b = nodes[j];
-        const ax = a.x + a.w / 2, ay = a.y + a.h / 2, bx = b.x + b.w / 2, by = b.y + b.h / 2;
-        const ex = bx - ax, ey = by - ay, len2 = ex * ex + ey * ey || 1;
-        for (let k = 0; k < nodes.length; k++) {
-            if (k === i || k === j) continue;
-            const c = nodes[k];
-            const cx = c.x + c.w / 2, cy = c.y + c.h / 2;
-            const t = clamp(((cx - ax) * ex + (cy - ay) * ey) / len2, 0, 1);
-            const px = ax + ex * t, py = ay + ey * t;
-            let dx = cx - px, dy = cy - py, d = Math.hypot(dx, dy);
-            const need = Math.min(c.w, c.h) / 2 + 40;
-            if (d < need) {
-                if (d < 0.01) { const ang = (k * 2.399) % 6.283; dx = Math.cos(ang); dy = Math.sin(ang); d = 1; }
-                c.x += dx / d * (need - d); c.y += dy / d * (need - d); moved = true;
+            let moved = false;
+            for (const [i, j] of links) {
+                const a = nodes[i], b = nodes[j];
+                const ax = a.x + a.w / 2, ay = a.y + a.h / 2, bx = b.x + b.w / 2, by = b.y + b.h / 2;
+                const ex = bx - ax, ey = by - ay, len2 = ex * ex + ey * ey || 1;
+                for (let k = 0; k < nodes.length; k++) {
+                    if (k === i || k === j) continue;
+                    const c = nodes[k];
+                    const cx = c.x + c.w / 2, cy = c.y + c.h / 2;
+                    const t = clamp(((cx - ax) * ex + (cy - ay) * ey) / len2, 0, 1);
+                    const px = ax + ex * t, py = ay + ey * t;
+                    let dx = cx - px, dy = cy - py, d = Math.hypot(dx, dy);
+                    const need = Math.min(c.w, c.h) / 2 + 40;
+                    if (d < need) {
+                        if (d < 0.01) { const ang = (k * 2.399) % 6.283; dx = Math.cos(ang); dy = Math.sin(ang); d = 1; }
+                        c.x += dx / d * (need - d); c.y += dy / d * (need - d); moved = true;
+                    }
+                }
             }
-        }
-    }
-    if (!moved) break;
-    resolveOverlaps(nodes, 60);
+            if (!moved) break;
+            resolveOverlaps(nodes, 60);
         }
     }
 
@@ -458,39 +458,39 @@ export function mountEngine() {
     function forceInto(nodes, links, fromCurrent) {
         const n = nodes.length;
         if (!fromCurrent) {
-    const R = Math.max(280, n * 50);
-    nodes.forEach((nd, i) => { const a = i / n * Math.PI * 2 - Math.PI / 2; nd.x = Math.cos(a) * R * 1.6; nd.y = Math.sin(a) * R * 1.05; });
+            const R = Math.max(280, n * 50);
+            nodes.forEach((nd, i) => { const a = i / n * Math.PI * 2 - Math.PI / 2; nd.x = Math.cos(a) * R * 1.6; nd.y = Math.sin(a) * R * 1.05; });
         }
         const desired = clamp(nodes.reduce((s, d) => s + d.w + d.h, 0) / n / 1.5, 300, 430);
         const cx0 = nodes.reduce((s, d) => s + d.x, 0) / n, cy0 = nodes.reduce((s, d) => s + d.y, 0) / n;
         const iters = 560;
         for (let it = 0; it < iters; it++) {
-    const cool = 1 - it / iters, cap = 8 + 85 * cool;
-    const fx = new Float64Array(n), fy = new Float64Array(n);
-    for (let i = 0; i < n; i++)for (let j = i + 1; j < n; j++) {
-        const a = nodes[i], b = nodes[j];
-        const dx = (a.x + a.w / 2) - (b.x + b.w / 2), dy = (a.y + a.h / 2) - (b.y + b.h / 2);
-        const d = Math.sqrt(dx * dx + dy * dy) + 0.01;
-        const sepX = (a.w + b.w) / 2 + GAP_X, sepY = (a.h + b.h) / 2 + GAP_Y;
-        const sep = Math.hypot(sepX, sepY);
-        if (d < sep * 2.1) {
-            const overlap = (sepX - Math.abs(dx) > 0) && (sepY - Math.abs(dy) > 0);
-            const f = (sep * sep) / (d * d) * 90 * (overlap ? 2.4 : 1);
-            const ux = dx / d * f, uy = dy / d * f;
-            fx[i] += ux; fy[i] += uy; fx[j] -= ux; fy[j] -= uy;
-        }
-    }
-    for (const [i, j] of links) {
-        const a = nodes[i], b = nodes[j];
-        const dx = (b.x + b.w / 2) - (a.x + a.w / 2), dy = (b.y + b.h / 2) - (a.y + a.h / 2);
-        const d = Math.sqrt(dx * dx + dy * dy) + 0.01;
-        const f = (d - desired) * 0.09, ux = dx / d * f, uy = dy / d * f;
-        fx[i] += ux; fy[i] += uy; fx[j] -= ux; fy[j] -= uy;
-    }
-    for (let i = 0; i < n; i++) {
-        fx[i] += (cx0 - nodes[i].x) * 0.02; fy[i] += (cy0 - nodes[i].y) * 0.02;
-        nodes[i].x += clamp(fx[i], -cap, cap); nodes[i].y += clamp(fy[i], -cap, cap);
-    }
+            const cool = 1 - it / iters, cap = 8 + 85 * cool;
+            const fx = new Float64Array(n), fy = new Float64Array(n);
+            for (let i = 0; i < n; i++)for (let j = i + 1; j < n; j++) {
+                const a = nodes[i], b = nodes[j];
+                const dx = (a.x + a.w / 2) - (b.x + b.w / 2), dy = (a.y + a.h / 2) - (b.y + b.h / 2);
+                const d = Math.sqrt(dx * dx + dy * dy) + 0.01;
+                const sepX = (a.w + b.w) / 2 + GAP_X, sepY = (a.h + b.h) / 2 + GAP_Y;
+                const sep = Math.hypot(sepX, sepY);
+                if (d < sep * 2.1) {
+                    const overlap = (sepX - Math.abs(dx) > 0) && (sepY - Math.abs(dy) > 0);
+                    const f = (sep * sep) / (d * d) * 90 * (overlap ? 2.4 : 1);
+                    const ux = dx / d * f, uy = dy / d * f;
+                    fx[i] += ux; fy[i] += uy; fx[j] -= ux; fy[j] -= uy;
+                }
+            }
+            for (const [i, j] of links) {
+                const a = nodes[i], b = nodes[j];
+                const dx = (b.x + b.w / 2) - (a.x + a.w / 2), dy = (b.y + b.h / 2) - (a.y + a.h / 2);
+                const d = Math.sqrt(dx * dx + dy * dy) + 0.01;
+                const f = (d - desired) * 0.09, ux = dx / d * f, uy = dy / d * f;
+                fx[i] += ux; fy[i] += uy; fx[j] -= ux; fy[j] -= uy;
+            }
+            for (let i = 0; i < n; i++) {
+                fx[i] += (cx0 - nodes[i].x) * 0.02; fy[i] += (cy0 - nodes[i].y) * 0.02;
+                nodes[i].x += clamp(fx[i], -cap, cap); nodes[i].y += clamp(fy[i], -cap, cap);
+            }
         }
     }
 
@@ -502,9 +502,9 @@ export function mountEngine() {
         const level = new Array(n).fill(0);
         let changed = true, guard = 0;
         while (changed && guard++ <= n + 2) {
-    changed = false;
-    for (let i = 0; i < n; i++)for (const p of pred[i])
-        if (level[p] + 1 > level[i]) { level[i] = level[p] + 1; changed = true; }
+            changed = false;
+            for (let i = 0; i < n; i++)for (const p of pred[i])
+                if (level[p] + 1 > level[i]) { level[i] = level[p] + 1; changed = true; }
         }
         const rows = Array.from({ length: Math.max(...level) + 1 }, () => []);
         nodes.forEach((nd, i) => rows[level[i]].push(i));
@@ -512,44 +512,44 @@ export function mountEngine() {
         const xIdx = new Array(n).fill(0);
         rows.forEach(row => row.forEach((i, ord) => xIdx[i] = ord));
         for (let sweep = 0; sweep < 8; sweep++) {
-    const down = sweep % 2 === 0;
-    for (const row of (down ? rows : [...rows].reverse())) {
-        const keys = row.map(i => {
-            const nb = down ? pred[i] : succ[i];
-            return nb.length ? nb.reduce((s, x) => s + xIdx[x], 0) / nb.length : xIdx[i];
-        });
-        row.map((i, k) => [i, keys[k]])
-            .sort((a, b) => a[1] - b[1] || a[0] - b[0])
-            .forEach(([i], ord) => { row[ord] = i; xIdx[i] = ord; });
-    }
+            const down = sweep % 2 === 0;
+            for (const row of (down ? rows : [...rows].reverse())) {
+                const keys = row.map(i => {
+                    const nb = down ? pred[i] : succ[i];
+                    return nb.length ? nb.reduce((s, x) => s + xIdx[x], 0) / nb.length : xIdx[i];
+                });
+                row.map((i, k) => [i, keys[k]])
+                    .sort((a, b) => a[1] - b[1] || a[0] - b[0])
+                    .forEach(([i], ord) => { row[ord] = i; xIdx[i] = ord; });
+            }
         }
         const posX = rows.map(row => {
-    let x = 0; return row.map(i => { const v = x; x += nodes[i].w + GAP_X; return v; });
+            let x = 0; return row.map(i => { const v = x; x += nodes[i].w + GAP_X; return v; });
         });
         for (let it = 0; it < 24; it++) {
-    rows.forEach((row, r) => {
-        row.forEach((i, k) => {
-            const nb = [...pred[i], ...succ[i]];
-            if (nb.length) {
-                const cx = nb.reduce((s, x) => s + posX[level[x]][xIdx[x]] + nodes[x].w / 2, 0) / nb.length;
-                posX[r][k] += (cx - nodes[i].w / 2 - posX[r][k]) * 0.5;
-            }
-        });
-        for (let k = 1; k < row.length; k++) {
-            const min = posX[r][k - 1] + nodes[row[k - 1]].w + GAP_X;
-            if (posX[r][k] < min) posX[r][k] = min;
-        }
-        for (let k = row.length - 2; k >= 0; k--) {
-            const max = posX[r][k + 1] - nodes[row[k]].w - GAP_X;
-            if (posX[r][k] > max) posX[r][k] = max;
-        }
-    });
+            rows.forEach((row, r) => {
+                row.forEach((i, k) => {
+                    const nb = [...pred[i], ...succ[i]];
+                    if (nb.length) {
+                        const cx = nb.reduce((s, x) => s + posX[level[x]][xIdx[x]] + nodes[x].w / 2, 0) / nb.length;
+                        posX[r][k] += (cx - nodes[i].w / 2 - posX[r][k]) * 0.5;
+                    }
+                });
+                for (let k = 1; k < row.length; k++) {
+                    const min = posX[r][k - 1] + nodes[row[k - 1]].w + GAP_X;
+                    if (posX[r][k] < min) posX[r][k] = min;
+                }
+                for (let k = row.length - 2; k >= 0; k--) {
+                    const max = posX[r][k + 1] - nodes[row[k]].w - GAP_X;
+                    if (posX[r][k] > max) posX[r][k] = max;
+                }
+            });
         }
         let y = 0;
         rows.forEach((row, r) => {
-    const h = Math.max(...row.map(i => nodes[i].h));
-    row.forEach((i, k) => { nodes[i].x = posX[r][k]; nodes[i].y = y + (h - nodes[i].h) / 2; });
-    y += h + GAP_Y;
+            const h = Math.max(...row.map(i => nodes[i].h));
+            row.forEach((i, k) => { nodes[i].x = posX[r][k]; nodes[i].y = y + (h - nodes[i].h) / 2; });
+            y += h + GAP_Y;
         });
     }
 
@@ -560,25 +560,25 @@ export function mountEngine() {
         for (const [i, j] of links) { adjL[i].push(j); adjL[j].push(i); deg[i]++; deg[j]++; }
         const seen = new Array(n).fill(false), order = [];
         for (const s of [...Array(n).keys()].sort((a, b) => deg[b] - deg[a])) {
-    if (seen[s]) continue;
-    const q = [s]; seen[s] = true;
-    while (q.length) {
-        const i = q.shift(); order.push(i);
-        for (const j of adjL[i]) if (!seen[j]) { seen[j] = true; q.push(j); }
-    }
+            if (seen[s]) continue;
+            const q = [s]; seen[s] = true;
+            while (q.length) {
+                const i = q.shift(); order.push(i);
+                for (const j of adjL[i]) if (!seen[j]) { seen[j] = true; q.push(j); }
+            }
         }
         const cols = Math.ceil(Math.sqrt(n)), nrows = Math.ceil(n / cols);
         const colW = new Array(cols).fill(0), rowH = new Array(nrows).fill(0);
         order.forEach((idx, k) => {
-    colW[k % cols] = Math.max(colW[k % cols], nodes[idx].w);
-    rowH[Math.floor(k / cols)] = Math.max(rowH[Math.floor(k / cols)], nodes[idx].h);
+            colW[k % cols] = Math.max(colW[k % cols], nodes[idx].w);
+            rowH[Math.floor(k / cols)] = Math.max(rowH[Math.floor(k / cols)], nodes[idx].h);
         });
         const colX = []; let x = 0; for (let c = 0; c < cols; c++) { colX[c] = x; x += colW[c] + GAP_X; }
         const rowY = []; let y = 0; for (let r = 0; r < nrows; r++) { rowY[r] = y; y += rowH[r] + GAP_Y; }
         order.forEach((idx, k) => {
-    const r = Math.floor(k / cols), c = k % cols;
-    nodes[idx].x = colX[c] + (colW[c] - nodes[idx].w) / 2;
-    nodes[idx].y = rowY[r] + (rowH[r] - nodes[idx].h) / 2;
+            const r = Math.floor(k / cols), c = k % cols;
+            nodes[idx].x = colX[c] + (colW[c] - nodes[idx].w) / 2;
+            nodes[idx].y = rowY[r] + (rowH[r] - nodes[idx].h) / 2;
         });
     }
 
@@ -586,10 +586,10 @@ export function mountEngine() {
         const n = entities.length; if (!n) return new Map();
         /* sequência: participantes espalhados em linha, ordem de declaração */
         if (entities.some(e => e.seq)) {
-    const out = new Map();
-    let x = 90;
-    for (const e of entities) { out.set(e.name, { x: Math.round(x), y: 40 }); x += e.w + 100; }
-    return out;
+            const out = new Map();
+            let x = 90;
+            for (const e of entities) { out.set(e.name, { x: Math.round(x), y: 40 }); x += e.w + 100; }
+            return out;
         }
         const map = new Map(entities.map((e, i) => [e.name, i]));
         const nodes = entities.map(e => ({ x: e.x ?? 0, y: e.y ?? 0, w: e.w, h: e.h }));
@@ -604,8 +604,8 @@ export function mountEngine() {
         for (const nd of nodes) { mnX = Math.min(mnX, nd.x); mnY = Math.min(mnY, nd.y); }
         const out = new Map();
         entities.forEach((e, i) => out.set(e.name, {
-    x: Math.round((nodes[i].x - mnX + 70) / 8) * 8,
-    y: Math.round((nodes[i].y - mnY + 70) / 8) * 8
+            x: Math.round((nodes[i].x - mnX + 70) / 8) * 8,
+            y: Math.round((nodes[i].y - mnY + 70) / 8) * 8
         }));
         return out;
     }
@@ -634,9 +634,9 @@ export function mountEngine() {
     function renderFlowNode(ent, inner) {
         const { w, h, shape } = ent, lbl = ent.label ?? ent.name;
         if (shape === 'diamond')
-    inner.append(svgEl('polygon', { points: `${w / 2},2 ${w - 2},${h / 2} ${w / 2},${h - 2} 2,${h / 2}`, class: 't-main' }));
+            inner.append(svgEl('polygon', { points: `${w / 2},2 ${w - 2},${h / 2} ${w / 2},${h - 2} 2,${h / 2}`, class: 't-main' }));
         else
-    inner.append(svgEl('rect', { x: 0, y: 0, width: w, height: h, rx: shape === 'stadium' ? h / 2 : 10, class: 't-main' }));
+            inner.append(svgEl('rect', { x: 0, y: 0, width: w, height: h, rx: shape === 'stadium' ? h / 2 : 10, class: 't-main' }));
         const t = svgEl('text', { x: w / 2, y: h / 2 + 4.5, 'text-anchor': 'middle', class: 't-name' });
         t.textContent = lbl; inner.append(t);
     }
@@ -664,28 +664,28 @@ export function mountEngine() {
         cnt.textContent = ent.attrs.length; inner.append(cnt);
         inner.append(svgEl('path', { class: 't-div', d: `M0 40H${ent.w}` }));
         if (!ent.attrs.length) {
-    const t = svgEl('text', { class: 't-empty', x: 14, y: 40 + 17 }); t.textContent = '— sem campos definidos';
-    inner.append(t);
+            const t = svgEl('text', { class: 't-empty', x: 14, y: 40 + 17 }); t.textContent = '— sem campos definidos';
+            inner.append(t);
         }
         ent.attrs.forEach((a, i) => {
-    const yT = 40 + i * 26;
-    const name = svgEl('text', { class: 't-name', x: 14, y: yT + 17 }); name.textContent = a.name;
-    if (a.comment) { const ti = svgEl('title'); ti.textContent = a.comment; name.append(ti); }
-    inner.append(name);
-    let bx = 14 + tw(a.name, F.name) + 7;
-    for (const k of a.keys) {
-        const kw = tw(k, F.key) + 12;
-        inner.append(svgEl('rect', { class: 'badge b-' + k.toLowerCase(), x: bx, y: yT + 5.5, width: kw, height: 15, rx: 7.5 }));
-        const t = svgEl('text', { class: 'badge-t b-' + k.toLowerCase(), x: bx + kw / 2, y: yT + 16, 'text-anchor': 'middle' });
-        t.textContent = k; inner.append(t); bx += kw + 5;
-    }
-    const tx = ent.commentW ? ent.w - ent.commentW - 12 : ent.w - 14;
-    const ty = svgEl('text', { class: 't-type', x: tx, y: yT + 16, 'text-anchor': 'end' });
-    ty.textContent = a.type; inner.append(ty);
-    if (a.comment) {
-    const cm = svgEl('text', { class: 't-comment', x: ent.w - ent.commentW + 6, y: yT + 16, style: 'font: italic 400 11px var(--mono); fill: var(--ink3)' });
-    cm.textContent = a.comment; inner.append(cm);
-    }
+            const yT = 40 + i * 26;
+            const name = svgEl('text', { class: 't-name', x: 14, y: yT + 17 }); name.textContent = a.name;
+            if (a.comment) { const ti = svgEl('title'); ti.textContent = a.comment; name.append(ti); }
+            inner.append(name);
+            let bx = 14 + tw(a.name, F.name) + 7;
+            for (const k of a.keys) {
+                const kw = tw(k, F.key) + 12;
+                inner.append(svgEl('rect', { class: 'badge b-' + k.toLowerCase(), x: bx, y: yT + 5.5, width: kw, height: 15, rx: 7.5 }));
+                const t = svgEl('text', { class: 'badge-t b-' + k.toLowerCase(), x: bx + kw / 2, y: yT + 16, 'text-anchor': 'middle' });
+                t.textContent = k; inner.append(t); bx += kw + 5;
+            }
+            const tx = ent.commentW ? ent.w - ent.commentW - 12 : ent.w - 14;
+            const ty = svgEl('text', { class: 't-type', x: tx, y: yT + 16, 'text-anchor': 'end' });
+            ty.textContent = a.type; inner.append(ty);
+            if (a.comment) {
+                const cm = svgEl('text', { class: 't-comment', x: ent.w - ent.commentW + 6, y: yT + 16, style: 'font: italic 400 11px var(--mono); fill: var(--ink3)' });
+                cm.textContent = a.comment; inner.append(cm);
+            }
         });
         inner.append(svgEl('rect', { class: 't-hit', x: 0, y: 0, width: ent.w, height: ent.h }));
     }
@@ -725,7 +725,7 @@ export function mountEngine() {
     function anchor(a, b) {
         const dx = (b.x + b.w / 2) - (a.x + a.w / 2), dy = (b.y + b.h / 2) - (a.y + a.h / 2);
         if (Math.abs(dx) >= Math.abs(dy))
-    return dx > 0 ? { x: a.x + a.w, y: a.y + a.h / 2, dx: 1, dy: 0 } : { x: a.x, y: a.y + a.h / 2, dx: -1, dy: 0 };
+            return dx > 0 ? { x: a.x + a.w, y: a.y + a.h / 2, dx: 1, dy: 0 } : { x: a.x, y: a.y + a.h / 2, dx: -1, dy: 0 };
         return dy > 0 ? { x: a.x + a.w / 2, y: a.y + a.h, dx: 0, dy: 1 } : { x: a.x + a.w / 2, y: a.y, dx: 0, dy: -1 };
     }
 
@@ -743,85 +743,85 @@ export function mountEngine() {
         gEdges.textContent = ''; gTop.textContent = ''; edgeNodes = [];
         if (model.type === 'seq') return buildSeqEdges(animate);
         for (const rel of model.relations) {
-    const a = byId[rel.a], b = byId[rel.b]; if (!a || !b || rel.a === rel.b) continue;
-    /* linha: camada de baixo */
-    const g = svgEl('g', { class: 'edge' + (rel.dash ? ' dash' : '') });
-    const line = svgEl('path', { class: 'e-line' });
-    g.append(line); gEdges.append(g);
-    /* símbolos + selos + rótulo: camada de cima (nunca atrás das tabelas) */
-    const ma = rel.simple ? simpleMarker(rel.aMk) : crowMarker(rel.ac);
-    const mb = rel.simple ? simpleMarker(rel.bMk) : crowMarker(rel.bc);
-    const ba = rel.simple ? svgEl('g') : cardBadge(CARD_TEXT[rel.ac]);
-    const bb = rel.simple ? svgEl('g') : cardBadge(CARD_TEXT[rel.bc]);
-    const lg = svgEl('g', { class: 'e-label' });
-    const lw = tw(rel.label || ' ', F.label) + 16;
-    const lr = svgEl('rect', { width: lw, height: 18, rx: 9 });
-    const lt = svgEl('text', { 'text-anchor': 'middle' }); lt.textContent = rel.label;
-    lg.append(lr, lt);
-    gTop.append(ma, mb, ba, bb, lg);
-    edgeNodes.push({ rel, g, line, ma, mb, ba, bb, lg, lr, lt, lw });
+            const a = byId[rel.a], b = byId[rel.b]; if (!a || !b || rel.a === rel.b) continue;
+            /* linha: camada de baixo */
+            const g = svgEl('g', { class: 'edge' + (rel.dash ? ' dash' : '') });
+            const line = svgEl('path', { class: 'e-line' });
+            g.append(line); gEdges.append(g);
+            /* símbolos + selos + rótulo: camada de cima (nunca atrás das tabelas) */
+            const ma = rel.simple ? simpleMarker(rel.aMk) : crowMarker(rel.ac);
+            const mb = rel.simple ? simpleMarker(rel.bMk) : crowMarker(rel.bc);
+            const ba = rel.simple ? svgEl('g') : cardBadge(CARD_TEXT[rel.ac]);
+            const bb = rel.simple ? svgEl('g') : cardBadge(CARD_TEXT[rel.bc]);
+            const lg = svgEl('g', { class: 'e-label' });
+            const lw = tw(rel.label || ' ', F.label) + 16;
+            const lr = svgEl('rect', { width: lw, height: 18, rx: 9 });
+            const lt = svgEl('text', { 'text-anchor': 'middle' }); lt.textContent = rel.label;
+            lg.append(lr, lt);
+            gTop.append(ma, mb, ba, bb, lg);
+            edgeNodes.push({ rel, g, line, ma, mb, ba, bb, lg, lr, lt, lw });
         }
         updateEdgeGeometry();
         if (animate && edgeNodes.length) {
-    scene.classList.add('drawing');
-    for (const E of edgeNodes) {
-        const L = E.line.getTotalLength();
-        E.line.style.strokeDasharray = L; E.line.style.strokeDashoffset = L;
-        E.line.getBoundingClientRect();
-        E.line.style.transition = 'stroke-dashoffset .9s cubic-bezier(.35,0,.25,1)';
-        requestAnimationFrame(() => E.line.style.strokeDashoffset = '0');
-    }
-    setTimeout(() => {
-        scene.classList.remove('drawing');
-        for (const E of edgeNodes) {
-            E.line.style.transition = ''; E.line.style.strokeDasharray = ''; E.line.style.strokeDashoffset = '';
-        }
-    }, 1150);
+            scene.classList.add('drawing');
+            for (const E of edgeNodes) {
+                const L = E.line.getTotalLength();
+                E.line.style.strokeDasharray = L; E.line.style.strokeDashoffset = L;
+                E.line.getBoundingClientRect();
+                E.line.style.transition = 'stroke-dashoffset .9s cubic-bezier(.35,0,.25,1)';
+                requestAnimationFrame(() => E.line.style.strokeDashoffset = '0');
+            }
+            setTimeout(() => {
+                scene.classList.remove('drawing');
+                for (const E of edgeNodes) {
+                    E.line.style.transition = ''; E.line.style.strokeDasharray = ''; E.line.style.strokeDashoffset = '';
+                }
+            }, 1150);
         }
     }
 
     function buildSeqEdges(animate) {
         for (const e of model.entities) {
-    const g = svgEl('g', { class: 'edge' });
-    const line = svgEl('path', { class: 'e-life' });
-    g.append(line); gEdges.append(g);
-    edgeNodes.push({ seq: true, life: true, entName: e.name, g, line });
+            const g = svgEl('g', { class: 'edge' });
+            const line = svgEl('path', { class: 'e-life' });
+            g.append(line); gEdges.append(g);
+            edgeNodes.push({ seq: true, life: true, entName: e.name, g, line });
         }
         for (const rel of model.relations) {
-    const g = svgEl('g', { class: 'edge' + (rel.dash ? ' dash' : '') });
-    const line = svgEl('path', { class: 'e-line' });
-    const ah = svgEl('path', { class: 'e-arrow' });
-    g.append(line, ah); gEdges.append(g);
-    const lg = svgEl('g', { class: 'e-label' });
-    const lw = tw(rel.label || ' ', F.label) + 16;
-    const lr = svgEl('rect', { width: lw, height: 18, rx: 9 });
-    const lt = svgEl('text', { 'text-anchor': 'middle' }); lt.textContent = rel.label;
-    lg.append(lr, lt); gTop.append(lg);
-    edgeNodes.push({ seq: true, rel, g, line, ah, lg, lr, lt, lw });
+            const g = svgEl('g', { class: 'edge' + (rel.dash ? ' dash' : '') });
+            const line = svgEl('path', { class: 'e-line' });
+            const ah = svgEl('path', { class: 'e-arrow' });
+            g.append(line, ah); gEdges.append(g);
+            const lg = svgEl('g', { class: 'e-label' });
+            const lw = tw(rel.label || ' ', F.label) + 16;
+            const lr = svgEl('rect', { width: lw, height: 18, rx: 9 });
+            const lt = svgEl('text', { 'text-anchor': 'middle' }); lt.textContent = rel.label;
+            lg.append(lr, lt); gTop.append(lg);
+            edgeNodes.push({ seq: true, rel, g, line, ah, lg, lr, lt, lw });
         }
         updateEdgeGeometry();
     }
 
     function updateSeqEdge(E) {
         if (E.life) {
-    const e = byId[E.entName]; if (!e) return;
-    E.line.setAttribute('d', `M${e.x + e.w / 2} ${e.h + 6} L${e.x + e.w / 2} ${model.seqBottom || 600}`);
-    return;
+            const e = byId[E.entName]; if (!e) return;
+            E.line.setAttribute('d', `M${e.x + e.w / 2} ${e.h + 6} L${e.x + e.w / 2} ${model.seqBottom || 600}`);
+            return;
         }
         const a = byId[E.rel.a], b = byId[E.rel.b]; if (!a || !b) return;
         const y = SEQ_TOP + E.rel.idx * SEQ_STEP;
         if (a === b) {
-    const x = a.x + a.w / 2;
-    E.line.setAttribute('d', `M${x} ${y} h60 a12 12 0 0 1 12 12 v6 a12 12 0 0 1 -12 12 h-60`);
-    E.ah.setAttribute('d', 'M0 0 L-11 -5 L-9 0 L-11 5 Z');
-    E.ah.setAttribute('transform', `translate(${x + 2} ${y + 30}) rotate(180)`);
-    E.lg.setAttribute('transform', `translate(${x + 45} ${y - 6})`);
+            const x = a.x + a.w / 2;
+            E.line.setAttribute('d', `M${x} ${y} h60 a12 12 0 0 1 12 12 v6 a12 12 0 0 1 -12 12 h-60`);
+            E.ah.setAttribute('d', 'M0 0 L-11 -5 L-9 0 L-11 5 Z');
+            E.ah.setAttribute('transform', `translate(${x + 2} ${y + 30}) rotate(180)`);
+            E.lg.setAttribute('transform', `translate(${x + 45} ${y - 6})`);
         } else {
-    const ax = a.x + a.w / 2, bx = b.x + b.w / 2, dir = bx >= ax ? 1 : -1;
-    E.line.setAttribute('d', `M${ax + dir * 2} ${y} L${bx - dir * 10} ${y}`);
-    E.ah.setAttribute('d', 'M0 0 L-11 -5 L-9 0 L-11 5 Z');
-    E.ah.setAttribute('transform', `translate(${bx - dir * 2} ${y}) rotate(${dir > 0 ? 0 : 180})`);
-    E.lg.setAttribute('transform', `translate(${(ax + bx) / 2} ${y - 14})`);
+            const ax = a.x + a.w / 2, bx = b.x + b.w / 2, dir = bx >= ax ? 1 : -1;
+            E.line.setAttribute('d', `M${ax + dir * 2} ${y} L${bx - dir * 10} ${y}`);
+            E.ah.setAttribute('d', 'M0 0 L-11 -5 L-9 0 L-11 5 Z');
+            E.ah.setAttribute('transform', `translate(${bx - dir * 2} ${y}) rotate(${dir > 0 ? 0 : 180})`);
+            E.lg.setAttribute('transform', `translate(${(ax + bx) / 2} ${y - 14})`);
         }
         E.lr.setAttribute('x', -E.lw / 2); E.lr.setAttribute('y', -9); E.lt.setAttribute('y', 3.5);
     }
@@ -831,50 +831,50 @@ export function mountEngine() {
         const ms = clamp(1 / (vw() / cam.w), 1, 1.7);
         const bo = 38 * ms, po = 14 * ms;
         for (const E of edgeNodes) {
-    if (E.seq) { updateSeqEdge(E); continue; }
-    const a = byId[E.rel.a], b = byId[E.rel.b]; if (!a || !b) continue;
-    const A = anchor(a, b), B = anchor(b, a);
-    const dist = Math.hypot(B.x - A.x, B.y - A.y);
-    const off = clamp(dist * 0.45, 40, 150);
-    const c1x = A.x + A.dx * off, c1y = A.y + A.dy * off, c2x = B.x + B.dx * off, c2y = B.y + B.dy * off;
-    E.line.setAttribute('d', `M${A.x} ${A.y}C${c1x} ${c1y} ${c2x} ${c2y} ${B.x} ${B.y}`);
-    const rotA = Math.atan2(A.dy, A.dx) * 180 / Math.PI, rotB = Math.atan2(B.dy, B.dx) * 180 / Math.PI;
-    E.ma.setAttribute('transform', `translate(${A.x} ${A.y}) rotate(${rotA}) scale(${ms})`);
-    E.mb.setAttribute('transform', `translate(${B.x} ${B.y}) rotate(${rotB}) scale(${ms})`);
-    E.ba.setAttribute('transform', `translate(${A.x + A.dx * bo + A.dy * po} ${A.y + A.dy * bo - A.dx * po}) scale(${ms})`);
-    E.bb.setAttribute('transform', `translate(${B.x + B.dx * bo + B.dy * po} ${B.y + B.dy * bo - B.dx * po}) scale(${ms})`);
-    const mx = (A.x + 3 * c1x + 3 * c2x + B.x) / 8, my = (A.y + 3 * c1y + 3 * c2y + B.y) / 8;
-    E.lg.setAttribute('transform', `translate(${mx} ${my})`);
-    E.lr.setAttribute('x', -E.lw / 2); E.lr.setAttribute('y', -9);
-    E.lt.setAttribute('y', 3.5);
+            if (E.seq) { updateSeqEdge(E); continue; }
+            const a = byId[E.rel.a], b = byId[E.rel.b]; if (!a || !b) continue;
+            const A = anchor(a, b), B = anchor(b, a);
+            const dist = Math.hypot(B.x - A.x, B.y - A.y);
+            const off = clamp(dist * 0.45, 40, 150);
+            const c1x = A.x + A.dx * off, c1y = A.y + A.dy * off, c2x = B.x + B.dx * off, c2y = B.y + B.dy * off;
+            E.line.setAttribute('d', `M${A.x} ${A.y}C${c1x} ${c1y} ${c2x} ${c2y} ${B.x} ${B.y}`);
+            const rotA = Math.atan2(A.dy, A.dx) * 180 / Math.PI, rotB = Math.atan2(B.dy, B.dx) * 180 / Math.PI;
+            E.ma.setAttribute('transform', `translate(${A.x} ${A.y}) rotate(${rotA}) scale(${ms})`);
+            E.mb.setAttribute('transform', `translate(${B.x} ${B.y}) rotate(${rotB}) scale(${ms})`);
+            E.ba.setAttribute('transform', `translate(${A.x + A.dx * bo + A.dy * po} ${A.y + A.dy * bo - A.dx * po}) scale(${ms})`);
+            E.bb.setAttribute('transform', `translate(${B.x + B.dx * bo + B.dy * po} ${B.y + B.dy * bo - B.dx * po}) scale(${ms})`);
+            const mx = (A.x + 3 * c1x + 3 * c2x + B.x) / 8, my = (A.y + 3 * c1y + 3 * c2y + B.y) / 8;
+            E.lg.setAttribute('transform', `translate(${mx} ${my})`);
+            E.lr.setAttribute('x', -E.lw / 2); E.lr.setAttribute('y', -9);
+            E.lt.setAttribute('y', 3.5);
         }
     }
 
     function buildAdj() {
         adj = {};
         for (const r of model.relations) {
-    if (!byId[r.a] || !byId[r.b]) continue;
-    (adj[r.a] ??= new Set()).add(r.b);
-    (adj[r.b] ??= new Set()).add(r.a);
+            if (!byId[r.a] || !byId[r.b]) continue;
+            (adj[r.a] ??= new Set()).add(r.b);
+            (adj[r.b] ??= new Set()).add(r.a);
         }
     }
 
     function updateFocus() {
         const act = hoverId || selectedId;
         for (const name in byId) {
-    const g = byId[name].g;
-    g.classList.toggle('sel', name === selectedId);
-    g.classList.toggle('dimt', !!act && name !== act && !(adj[name] && adj[name].has(act)));
+            const g = byId[name].g;
+            g.classList.toggle('sel', name === selectedId);
+            g.classList.toggle('dimt', !!act && name !== act && !(adj[name] && adj[name].has(act)));
         }
         for (const E of edgeNodes) {
-    const hit = !!act && (E.rel.a === act || E.rel.b === act);
-    const dim = !!act && !hit;
-    E.g.classList.toggle('on', hit);
-    E.g.classList.toggle('dim', dim);
-    for (const el of [E.ma, E.mb, E.ba, E.bb, E.lg]) {
-        el.classList.toggle('on', hit);
-        el.classList.toggle('dim', dim);
-    }
+            const hit = !!act && (E.rel.a === act || E.rel.b === act);
+            const dim = !!act && !hit;
+            E.g.classList.toggle('on', hit);
+            E.g.classList.toggle('dim', dim);
+            for (const el of [E.ma, E.mb, E.ba, E.bb, E.lg]) {
+                el.classList.toggle('on', hit);
+                el.classList.toggle('dim', dim);
+            }
         }
         updateMinimap();
     }
@@ -905,10 +905,10 @@ export function mountEngine() {
         const s = { ...cam }, t0 = performance.now();
         const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
         const step = t => {
-    const p = Math.min(1, (t - t0) / dur), k = ease(p);
-    cam.x = s.x + (target.x - s.x) * k; cam.y = s.y + (target.y - s.y) * k; cam.w = s.w + (target.w - s.w) * k;
-    applyView();
-    if (p < 1) camAnim = requestAnimationFrame(step);
+            const p = Math.min(1, (t - t0) / dur), k = ease(p);
+            cam.x = s.x + (target.x - s.x) * k; cam.y = s.y + (target.y - s.y) * k; cam.w = s.w + (target.w - s.w) * k;
+            applyView();
+            if (p < 1) camAnim = requestAnimationFrame(step);
         };
         camAnim = requestAnimationFrame(step);
     }
@@ -916,8 +916,8 @@ export function mountEngine() {
         if (!model.entities.length) return null;
         let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
         for (const e of model.entities) {
-    x1 = Math.min(x1, e.x); y1 = Math.min(y1, e.y);
-    x2 = Math.max(x2, e.x + e.w); y2 = Math.max(y2, e.y + e.h);
+            x1 = Math.min(x1, e.x); y1 = Math.min(y1, e.y);
+            x2 = Math.max(x2, e.x + e.w); y2 = Math.max(y2, e.y + e.h);
         }
         return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
     }
@@ -962,20 +962,20 @@ export function mountEngine() {
         let bx = null, by = null;
         const A = { l: nx, r: nx + ent.w, cx: nx + ent.w / 2, t: ny, b: ny + ent.h, cy: ny + ent.h / 2 };
         for (const o of model.entities) {
-    if (o === ent) continue;
-    const B = { l: o.x, r: o.x + o.w, cx: o.x + o.w / 2, t: o.y, b: o.y + o.h, cy: o.y + o.h / 2 };
-    for (const [ka, kb] of [['cx', 'cx'], ['l', 'l'], ['r', 'r'], ['l', 'r'], ['r', 'l']]) {
-        const d = B[kb] - A[ka];
-        if (Math.abs(d) < thr && (!bx || Math.abs(d) < Math.abs(bx.d))) bx = { d, x: B[kb], o };
-    }
-    for (const [ka, kb] of [['cy', 'cy'], ['t', 't'], ['b', 'b'], ['t', 'b'], ['b', 't']]) {
-        const d = B[kb] - A[ka];
-        if (Math.abs(d) < thr && (!by || Math.abs(d) < Math.abs(by.d))) by = { d, y: B[kb], o };
-    }
+            if (o === ent) continue;
+            const B = { l: o.x, r: o.x + o.w, cx: o.x + o.w / 2, t: o.y, b: o.y + o.h, cy: o.y + o.h / 2 };
+            for (const [ka, kb] of [['cx', 'cx'], ['l', 'l'], ['r', 'r'], ['l', 'r'], ['r', 'l']]) {
+                const d = B[kb] - A[ka];
+                if (Math.abs(d) < thr && (!bx || Math.abs(d) < Math.abs(bx.d))) bx = { d, x: B[kb], o };
+            }
+            for (const [ka, kb] of [['cy', 'cy'], ['t', 't'], ['b', 'b'], ['t', 'b'], ['b', 't']]) {
+                const d = B[kb] - A[ka];
+                if (Math.abs(d) < thr && (!by || Math.abs(d) < Math.abs(by.d))) by = { d, y: B[kb], o };
+            }
         }
         /* encaixe somente em UM eixo por vez (o mais próximo) — nunca na diagonal */
         if (bx && by) {
-    if (Math.abs(bx.d) <= Math.abs(by.d)) by = null; else bx = null;
+            if (Math.abs(bx.d) <= Math.abs(by.d)) by = null; else bx = null;
         }
         if (bx) nx += bx.d;
         if (by) ny += by.d;
@@ -1009,34 +1009,34 @@ export function mountEngine() {
     });
     scene.addEventListener('pointermove', e => {
         if (dragState) {
-    const p = screenToWorld(e.clientX, e.clientY);
-    const ent = dragState.ent;
-    const sn = snapMove(ent, p.x - dragState.ox, p.y - dragState.oy);
-    ent.x = sn.nx; ent.y = sn.ny;
-    ent.g.setAttribute('transform', `translate(${ent.x} ${ent.y})`);
-    drawGuides(sn); updateEdgeGeometry(); updateMinimap();
-    dragState.moved = true;
+            const p = screenToWorld(e.clientX, e.clientY);
+            const ent = dragState.ent;
+            const sn = snapMove(ent, p.x - dragState.ox, p.y - dragState.oy);
+            ent.x = sn.nx; ent.y = sn.ny;
+            ent.g.setAttribute('transform', `translate(${ent.x} ${ent.y})`);
+            drawGuides(sn); updateEdgeGeometry(); updateMinimap();
+            dragState.moved = true;
         } else if (panState) {
-    const dx = e.clientX - panState.sx, dy = e.clientY - panState.sy;
-    if (Math.abs(dx) + Math.abs(dy) > 3) panState.moved = true;
-    const r = scene.getBoundingClientRect();
-    cam.x = panState.cx - dx * cam.w / r.width;
-    cam.y = panState.cy - dy * cam.h / r.height;
-    applyView();
+            const dx = e.clientX - panState.sx, dy = e.clientY - panState.sy;
+            if (Math.abs(dx) + Math.abs(dy) > 3) panState.moved = true;
+            const r = scene.getBoundingClientRect();
+            cam.x = panState.cx - dx * cam.w / r.width;
+            cam.y = panState.cy - dy * cam.h / r.height;
+            applyView();
         }
     });
     function endPointer(e) {
         if (dragState) {
-    const ent = dragState.ent;
-    ent.g.classList.remove('dragging');
-    gGuides.textContent = '';
-    if (dragState.moved) savePositions();
-    dragState = null;
+            const ent = dragState.ent;
+            ent.g.classList.remove('dragging');
+            gGuides.textContent = '';
+            if (dragState.moved) savePositions();
+            dragState = null;
         }
         if (panState) {
-    scene.classList.remove('panning');
-    if (!panState.moved) { selectedId = null; updateFocus(); peerSend({ t: 'sel', ent: null }); }
-    panState = null;
+            scene.classList.remove('panning');
+            if (!panState.moved) { selectedId = null; updateFocus(); peerSend({ t: 'sel', ent: null }); }
+            panState = null;
         }
     }
     scene.addEventListener('pointerup', endPointer);
@@ -1057,11 +1057,11 @@ export function mountEngine() {
         mmState = { s, ox, oy, rx, ry };
         mmContent.textContent = '';
         for (const e of model.entities) {
-    mmContent.append(svgEl('rect', {
-        x: ox + (e.x - rx) * s, y: oy + (e.y - ry) * s,
-        width: Math.max(3, e.w * s), height: Math.max(2.4, e.h * s), rx: 2,
-        class: 'mm-t' + (e.name === selectedId ? ' sel' : '')
-    }));
+            mmContent.append(svgEl('rect', {
+                x: ox + (e.x - rx) * s, y: oy + (e.y - ry) * s,
+                width: Math.max(3, e.w * s), height: Math.max(2.4, e.h * s), rx: 2,
+                class: 'mm-t' + (e.name === selectedId ? ' sel' : '')
+            }));
         }
         mmView.setAttribute('x', ox + (cam.x - rx) * s); mmView.setAttribute('y', oy + (cam.y - ry) * s);
         mmView.setAttribute('width', cam.w * s); mmView.setAttribute('height', cam.h * s);
@@ -1095,26 +1095,26 @@ export function mountEngine() {
     function hlRest(rest) {
         let out = '';
         for (const p of rest.split(/("[^"]*")/g)) {
-    if (p.startsWith('"')) out += `<span class="c-cm">${esc(p)}</span>`;
-    else out += esc(p).replace(/\b(PK|FK|UK)\b/g, '<span class="c-key">$1</span>');
+            if (p.startsWith('"')) out += `<span class="c-cm">${esc(p)}</span>`;
+            else out += esc(p).replace(/\b(PK|FK|UK)\b/g, '<span class="c-key">$1</span>');
         }
         return out;
     }
     function renderHighlight() {
         let inBlock = false; const out = [];
         for (const raw of src.value.split('\n')) {
-    const line = raw.replace(/;\s*$/, ''), t = line.trim();
-    let h = null, m;
-    if (t.startsWith('%%')) h = `<span class="c-cm">${esc(line)}</span>`;
-    else if (/^erDiagram\b/.test(t)) h = `<span class="c-kw">${esc(line)}</span>`;
-    else if (m = line.match(REL_HL))
-        h = `${esc(m[1])}<span class="c-en">${esc(m[2])}</span><span class="c-card">${esc(m[3])}</span><span class="c-card">${esc(m[4])}</span><span class="c-card">${esc(m[5])}</span><span class="c-en">${esc(m[6])}</span><span class="c-col">${esc(m[7])}</span><span class="c-lb">${esc(m[8])}</span>`;
-    else if (m = line.match(OPEN_HL)) { h = `${esc(m[1])}<span class="c-en">${esc(m[2])}</span><span class="c-br">${esc(m[3])}</span>`; inBlock = true; }
-    else if (m = line.match(CLOSE_HL)) { h = `${esc(m[1])}<span class="c-br">${esc(m[2])}</span>`; if (inBlock) inBlock = false; }
-    else if (inBlock && (m = line.match(ATTR_HL)))
-        h = `${esc(m[1])}<span class="c-ty">${esc(m[2])}</span>${esc(m[3])}<span class="c-en">${esc(m[4])}</span>${esc(m[5])}${hlRest(m[6])}`;
-    else if (m = line.match(SOLO_HL)) h = `${esc(m[1])}<span class="c-en">${esc(m[2])}</span>`;
-    out.push(h ?? esc(line));
+            const line = raw.replace(/;\s*$/, ''), t = line.trim();
+            let h = null, m;
+            if (t.startsWith('%%')) h = `<span class="c-cm">${esc(line)}</span>`;
+            else if (/^erDiagram\b/.test(t)) h = `<span class="c-kw">${esc(line)}</span>`;
+            else if (m = line.match(REL_HL))
+                h = `${esc(m[1])}<span class="c-en">${esc(m[2])}</span><span class="c-card">${esc(m[3])}</span><span class="c-card">${esc(m[4])}</span><span class="c-card">${esc(m[5])}</span><span class="c-en">${esc(m[6])}</span><span class="c-col">${esc(m[7])}</span><span class="c-lb">${esc(m[8])}</span>`;
+            else if (m = line.match(OPEN_HL)) { h = `${esc(m[1])}<span class="c-en">${esc(m[2])}</span><span class="c-br">${esc(m[3])}</span>`; inBlock = true; }
+            else if (m = line.match(CLOSE_HL)) { h = `${esc(m[1])}<span class="c-br">${esc(m[2])}</span>`; if (inBlock) inBlock = false; }
+            else if (inBlock && (m = line.match(ATTR_HL)))
+                h = `${esc(m[1])}<span class="c-ty">${esc(m[2])}</span>${esc(m[3])}<span class="c-en">${esc(m[4])}</span>${esc(m[5])}${hlRest(m[6])}`;
+            else if (m = line.match(SOLO_HL)) h = `${esc(m[1])}<span class="c-en">${esc(m[2])}</span>`;
+            out.push(h ?? esc(line));
         }
         hlcode.innerHTML = out.join('\n') + '\n';
     }
@@ -1129,18 +1129,18 @@ export function mountEngine() {
         const w = Math.max(0, ...rels.map(r => `${r.a} ${r.lc}${r.conn}${r.rc} ${r.b}`.length));
         for (const r of rels) lines.push(`${`${r.a} ${r.lc}${r.conn}${r.rc} ${r.b}`.padEnd(w)} : ${r.label}`);
         for (const e of res.entities) {
-    if (!e.attrs.length) continue;
-    lines.push('', `${e.name} {`);
-    for (const a of e.attrs) {
-        let l = `    ${a.type} ${a.name}`;
-        if (a.keys.length) l += ' ' + a.keys.join(' ');
-        if (a.comment) l += ` "${a.comment}"`;
-        lines.push(l);
-    }
-    lines.push('}');
+            if (!e.attrs.length) continue;
+            lines.push('', `${e.name} {`);
+            for (const a of e.attrs) {
+                let l = `    ${a.type} ${a.name}`;
+                if (a.keys.length) l += ' ' + a.keys.join(' ');
+                if (a.comment) l += ` "${a.comment}"`;
+                lines.push(l);
+            }
+            lines.push('}');
         }
         for (const e of res.entities)
-    if (!e.attrs.length && !rels.some(r => r.a === e.name || r.b === e.name)) lines.push('', e.name);
+            if (!e.attrs.length && !rels.some(r => r.a === e.name || r.b === e.name)) lines.push('', e.name);
         return lines.join('\n');
     }
     function formatCode(silent) {
@@ -1160,13 +1160,13 @@ export function mountEngine() {
     function placeNear(ent) {
         const nb = [];
         for (const r of model.relations) {
-    const o = r.a === ent.name ? r.b : (r.b === ent.name ? r.a : null);
-    if (o && positions[o]) nb.push(positions[o]);
+            const o = r.a === ent.name ? r.b : (r.b === ent.name ? r.a : null);
+            if (o && positions[o]) nb.push(positions[o]);
         }
         let cx, cy;
         if (nb.length) {
-    cx = nb.reduce((s, p) => s + p.x, 0) / nb.length + ent.w / 2;
-    cy = nb.reduce((s, p) => s + p.y, 0) / nb.length + ent.h / 2;
+            cx = nb.reduce((s, p) => s + p.x, 0) / nb.length + ent.w / 2;
+            cy = nb.reduce((s, p) => s + p.y, 0) / nb.length + ent.h / 2;
         } else { cx = cam.x + cam.w / 2 - ent.w / 2; cy = cam.y + cam.h / 2 - ent.h / 2; }
         const i = placeNear.n = (placeNear.n || 0) + 1;
         const a = i * 2.1, r = 30 + i * 26;
@@ -1182,19 +1182,19 @@ export function mountEngine() {
         model = res;
         for (const e of model.entities) measureEntity(e);
         if (model.type === 'seq') {
-    model.seqBottom = SEQ_TOP + Math.max(1, model.relations.length) * SEQ_STEP + 36;
-    resetLayout = true; /* sequência sempre re-layouta (posição linear) */
+            model.seqBottom = SEQ_TOP + Math.max(1, model.relations.length) * SEQ_STEP + 36;
+            resetLayout = true; /* sequência sempre re-layouta (posição linear) */
         }
         if (resetLayout) {
-    const map = layoutPositions(model.entities, model.relations, false, mode);
-    for (const e of model.entities) { const p = map.get(e.name); e.x = p.x; e.y = p.y; }
+            const map = layoutPositions(model.entities, model.relations, false, mode);
+            for (const e of model.entities) { const p = map.get(e.name); e.x = p.x; e.y = p.y; }
         } else {
-    placeNear.n = 0; let anyNew = false;
-    for (const e of model.entities) {
-        const p = positions[e.name];
-        if (p) { e.x = p.x; e.y = p.y; } else { placeNear(e); anyNew = true; }
-    }
-    if (anyNew) resolveOverlaps(model.entities, 40);
+            placeNear.n = 0; let anyNew = false;
+            for (const e of model.entities) {
+                const p = positions[e.name];
+                if (p) { e.x = p.x; e.y = p.y; } else { placeNear(e); anyNew = true; }
+            }
+            if (anyNew) resolveOverlaps(model.entities, 40);
         }
         gTables.textContent = ''; byId = {};
         model.entities.forEach((e, i) => { byId[e.name] = e; gTables.append(buildTableNode(e, animate, i)); });
@@ -1215,15 +1215,15 @@ export function mountEngine() {
         const t0 = performance.now();
         const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
         const step = t => {
-    const p = Math.min(1, (t - t0) / dur), k = ease(p);
-    model.entities.forEach((e, i) => {
-        const s = targets.get(e.name); if (!s) return;
-        e.x = starts[i].x + (s.x - starts[i].x) * k; e.y = starts[i].y + (s.y - starts[i].y) * k;
-        e.g.setAttribute('transform', `translate(${e.x} ${e.y})`);
-    });
-    updateEdgeGeometry(); updateMinimap();
-    if (p < 1) requestAnimationFrame(step);
-    else { animating = false; done && done(); }
+            const p = Math.min(1, (t - t0) / dur), k = ease(p);
+            model.entities.forEach((e, i) => {
+                const s = targets.get(e.name); if (!s) return;
+                e.x = starts[i].x + (s.x - starts[i].x) * k; e.y = starts[i].y + (s.y - starts[i].y) * k;
+                e.g.setAttribute('transform', `translate(${e.x} ${e.y})`);
+            });
+            updateEdgeGeometry(); updateMinimap();
+            if (p < 1) requestAnimationFrame(step);
+            else { animating = false; done && done(); }
         };
         requestAnimationFrame(step);
     }
@@ -1239,11 +1239,11 @@ export function mountEngine() {
     }
     function setParseState(errors, res) {
         if (errors && errors.length) {
-    parseDot.classList.add('err'); parseFoot.classList.add('err');
-    parseText.textContent = `linha ${errors[0].line}: ${errors[0].msg}${errors.length > 1 ? ` (+${errors.length - 1})` : ''}`;
+            parseDot.classList.add('err'); parseFoot.classList.add('err');
+            parseText.textContent = `linha ${errors[0].line}: ${errors[0].msg}${errors.length > 1 ? ` (+${errors.length - 1})` : ''}`;
         } else {
-    parseDot.classList.remove('err'); parseFoot.classList.remove('err');
-    parseText.textContent = `ok · ${res.entities.length} entidades · ${res.relations.length} relações`;
+            parseDot.classList.remove('err'); parseFoot.classList.remove('err');
+            parseText.textContent = `ok · ${res.entities.length} entidades · ${res.relations.length} relações`;
         }
     }
 
@@ -1254,17 +1254,17 @@ export function mountEngine() {
     async function getFontCSS() {
         if (_fontCSS !== null) return _fontCSS;
         try {
-    const link = document.querySelector('link[href*="fonts.googleapis"]');
-    const css = await (await fetch(link.href)).text();
-    const blocks = css.split('@font-face').slice(1).map(b => '@font-face' + b.slice(0, b.indexOf('}') + 1));
-    let out = '';
-    for (const b of blocks.filter(x => x.includes('U+0000-00FF'))) {
-        const u = b.match(/url\((https:[^)]+)\)/)[1];
-        const arr = new Uint8Array(await (await fetch(u)).arrayBuffer());
-        let bin = ''; for (let i = 0; i < arr.length; i += 0x8000) bin += String.fromCharCode.apply(null, arr.subarray(i, i + 0x8000));
-        out += b.replace(u, `data:font/woff2;base64,${btoa(bin)}`);
-    }
-    _fontCSS = out;
+            const link = document.querySelector('link[href*="fonts.googleapis"]');
+            const css = await (await fetch(link.href)).text();
+            const blocks = css.split('@font-face').slice(1).map(b => '@font-face' + b.slice(0, b.indexOf('}') + 1));
+            let out = '';
+            for (const b of blocks.filter(x => x.includes('U+0000-00FF'))) {
+                const u = b.match(/url\((https:[^)]+)\)/)[1];
+                const arr = new Uint8Array(await (await fetch(u)).arrayBuffer());
+                let bin = ''; for (let i = 0; i < arr.length; i += 0x8000) bin += String.fromCharCode.apply(null, arr.subarray(i, i + 0x8000));
+                out += b.replace(u, `data:font/woff2;base64,${btoa(bin)}`);
+            }
+            _fontCSS = out;
         } catch (e) { _fontCSS = ''; }
         return _fontCSS;
     }
@@ -1281,7 +1281,7 @@ export function mountEngine() {
         clone.querySelector('#gPeers')?.remove();
         clone.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
         for (const c of ['enter', 'dragging', 'dim', 'on', 'dimt', 'sel', 'drawing'])
-    clone.querySelectorAll('.' + c).forEach(el => el.classList.remove(c));
+            clone.querySelectorAll('.' + c).forEach(el => el.classList.remove(c));
         const vars = THEME_VARS.map(n => `${n}:${cssVar(n)}`).join(';');
         const st = document.createElementNS(NS, 'style');
         let appCss = '';
@@ -1307,13 +1307,13 @@ export function mountEngine() {
         const r = await buildExportSVG();
         if (!r) { toast('Nada para exportar', 'err'); return; }
         try {
-    const url = URL.createObjectURL(new Blob([r.str], { type: 'image/svg+xml;charset=utf-8' }));
-    const img = new Image();
-    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
-    const c = document.createElement('canvas'); c.width = r.W * 2; c.height = r.H * 2;
-    const ctx = c.getContext('2d'); ctx.scale(2, 2); ctx.drawImage(img, 0, 0, r.W, r.H);
-    URL.revokeObjectURL(url);
-    c.toBlob(b => { downloadBlob(b, 'diagrama-er.png'); toast('PNG exportado (2×)'); }, 'image/png');
+            const url = URL.createObjectURL(new Blob([r.str], { type: 'image/svg+xml;charset=utf-8' }));
+            const img = new Image();
+            await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+            const c = document.createElement('canvas'); c.width = r.W * 2; c.height = r.H * 2;
+            const ctx = c.getContext('2d'); ctx.scale(2, 2); ctx.drawImage(img, 0, 0, r.W, r.H);
+            URL.revokeObjectURL(url);
+            c.toBlob(b => { downloadBlob(b, 'diagrama-er.png'); toast('PNG exportado (2×)'); }, 'image/png');
         } catch (e) { toast('Falha ao gerar PNG', 'err'); }
     }
 
@@ -1371,17 +1371,17 @@ export function mountEngine() {
         const cw = monoCtx.measureText('M').width || 7.5;
         const totalLines = src.value.split('\n').length;
         for (const p of peers.values()) {
-    if (p.line == null || p.line < 0 || p.line >= totalLines) continue;
-    /* linha+coluna direto do peer — estável mesmo com códigos momentaneamente divergentes */
-    const lineTxt = src.value.split('\n')[p.line] || '';
-    const col = clamp(p.col ?? 0, 0, lineTxt.length);
-    const d = document.createElement('div');
-    d.className = 'peer-caret';
-    d.style.left = (padL + col * cw - src.scrollLeft) + 'px';
-    d.style.top = (padT + p.line * lh - src.scrollTop) + 'px';
-    d.style.background = p.peer.color;
-    d.innerHTML = `<b style="background:${p.peer.color}">${esc(p.peer.name)}</b>`;
-    peerCurLayer.append(d);
+            if (p.line == null || p.line < 0 || p.line >= totalLines) continue;
+            /* linha+coluna direto do peer — estável mesmo com códigos momentaneamente divergentes */
+            const lineTxt = src.value.split('\n')[p.line] || '';
+            const col = clamp(p.col ?? 0, 0, lineTxt.length);
+            const d = document.createElement('div');
+            d.className = 'peer-caret';
+            d.style.left = (padL + col * cw - src.scrollLeft) + 'px';
+            d.style.top = (padT + p.line * lh - src.scrollTop) + 'px';
+            d.style.background = p.peer.color;
+            d.innerHTML = `<b style="background:${p.peer.color}">${esc(p.peer.name)}</b>`;
+            peerCurLayer.append(d);
         }
     }
     const btnPeerCur = $('btnPeerCur');
@@ -1398,31 +1398,31 @@ export function mountEngine() {
     function renderPeers() {
         peersBar.textContent = '';
         [...peers.values()].forEach(p => {
-    const c = document.createElement('span');
-    c.className = 'peer-chip'; c.style.setProperty('--pc', p.peer.color);
-    c.innerHTML = `<i></i>${esc(p.peer.name)}`;
-    peersBar.append(c);
+            const c = document.createElement('span');
+            c.className = 'peer-chip'; c.style.setProperty('--pc', p.peer.color);
+            c.innerHTML = `<i></i>${esc(p.peer.name)}`;
+            peersBar.append(c);
         });
         /* marca no gutter a linha onde cada peer está editando */
         [...gutterIn.children].forEach(el => { el.style.boxShadow = ''; });
         for (const p of peers.values()) {
-    if (p.line >= 0 && p.line < gutterIn.children.length)
-        gutterIn.children[p.line].style.boxShadow = `inset 3px 0 0 ${p.peer.color}`;
+            if (p.line >= 0 && p.line < gutterIn.children.length)
+                gutterIn.children[p.line].style.boxShadow = `inset 3px 0 0 ${p.peer.color}`;
         }
         /* contorno colorido na entidade que o peer está editando */
         gPeers.textContent = '';
         for (const p of peers.values()) {
-    const e = p.ent && byId[p.ent];
-    if (!e) continue;
-    gPeers.append(svgEl('rect', {
-        x: e.x - 3, y: e.y - 3, width: e.w + 6, height: e.h + 6, rx: 12,
-        fill: 'none', stroke: p.peer.color, 'stroke-width': 2, 'stroke-dasharray': '6 4', opacity: .9
-    }));
-    const t = svgEl('text', {
-        x: e.x, y: e.y - 10, fill: p.peer.color,
-        style: 'font:600 11px var(--sans,sans-serif)'
-    });
-    t.textContent = p.peer.name; gPeers.append(t);
+            const e = p.ent && byId[p.ent];
+            if (!e) continue;
+            gPeers.append(svgEl('rect', {
+                x: e.x - 3, y: e.y - 3, width: e.w + 6, height: e.h + 6, rx: 12,
+                fill: 'none', stroke: p.peer.color, 'stroke-width': 2, 'stroke-dasharray': '6 4', opacity: .9
+            }));
+            const t = svgEl('text', {
+                x: e.x, y: e.y - 10, fill: p.peer.color,
+                style: 'font:600 11px var(--sans,sans-serif)'
+            });
+            t.textContent = p.peer.name; gPeers.append(t);
         }
     }
     function prunePeers() {
@@ -1437,29 +1437,29 @@ export function mountEngine() {
         if (m.t === 'ping') { if (m.line != null) p.line = m.line; if (m.col != null) p.col = m.col; }
         if (m.t === 'hello') { peerSend({ t: 'ping', line: curLine() }); peerSend({ t: 'state', code: src.value }); }
         if (m.t === 'state' && m.code != null && !applyingRemote && Date.now() - lastPushAt > 1500 && m.code !== src.value) {
-    applyingRemote = true;
-    pushHistory();
-    /* guarda minha posição por linha/coluna pra não pular cursor */
-    const myPos = src.selectionStart;
-    const myLine = src.value.slice(0, myPos).split('\n').length - 1;
-    const myCol = myPos - (src.value.lastIndexOf('\n', myPos - 1) + 1);
-    src.value = m.code;
-    const lines = m.code.split('\n');
-    const l = Math.min(myLine, lines.length - 1);
-    const np = lines.slice(0, l).reduce((s, x) => s + x.length + 1, 0) + Math.min(myCol, lines[l].length);
-    src.selectionStart = src.selectionEnd = np;
-    lastLen = m.code.length; lastCaret = np; lastSel = np; snipState = null;
-    renderHighlight(); updateGutter(); applySource(m.code); renderPeerCursors();
-    applyingRemote = false;
-    toast(`${m.peer.name} editou o diagrama`);
+            applyingRemote = true;
+            pushHistory();
+            /* guarda minha posição por linha/coluna pra não pular cursor */
+            const myPos = src.selectionStart;
+            const myLine = src.value.slice(0, myPos).split('\n').length - 1;
+            const myCol = myPos - (src.value.lastIndexOf('\n', myPos - 1) + 1);
+            src.value = m.code;
+            const lines = m.code.split('\n');
+            const l = Math.min(myLine, lines.length - 1);
+            const np = lines.slice(0, l).reduce((s, x) => s + x.length + 1, 0) + Math.min(myCol, lines[l].length);
+            src.selectionStart = src.selectionEnd = np;
+            lastLen = m.code.length; lastCaret = np; lastSel = np; snipState = null;
+            renderHighlight(); updateGutter(); applySource(m.code); renderPeerCursors();
+            applyingRemote = false;
+            toast(`${m.peer.name} editou o diagrama`);
         }
         if (m.t === 'pos' && m.pos && !dragState) {
-    positions = m.pos;
-    for (const e of model.entities) {
-        const q = m.pos[e.name];
-        if (q) { e.x = q.x; e.y = q.y; e.g?.setAttribute('transform', `translate(${e.x} ${e.y})`); }
-    }
-    updateEdgeGeometry(); updateMinimap();
+            positions = m.pos;
+            for (const e of model.entities) {
+                const q = m.pos[e.name];
+                if (q) { e.x = q.x; e.y = q.y; e.g?.setAttribute('transform', `translate(${e.x} ${e.y})`); }
+            }
+            updateEdgeGeometry(); updateMinimap();
         }
         if (m.t === 'sel') p.ent = m.ent ?? null;
         peers.set(m.peer.id, p);
@@ -1470,8 +1470,8 @@ export function mountEngine() {
     let curPending = false;
     function curPing(force) {
         const payload = () => {
-    const pos = src.selectionStart;
-    peerSend({ t: 'ping', line: src.value.slice(0, pos).split('\n').length - 1, col: pos - (src.value.lastIndexOf('\n', pos - 1) + 1) });
+            const pos = src.selectionStart;
+            peerSend({ t: 'ping', line: src.value.slice(0, pos).split('\n').length - 1, col: pos - (src.value.lastIndexOf('\n', pos - 1) + 1) });
         };
         if (force) { payload(); curPending = false; return; }
         /* throttle de 90ms com disparo garantido no fim — cursor remoto quase em tempo real */
@@ -1564,8 +1564,8 @@ export function mountEngine() {
         const cw = monoCtx.measureText('M').width || 7.5;
         const wrap = document.querySelector('.code-wrap');
         return {
-    x: clamp(parseFloat(cs.paddingLeft) + colTxt.length * cw - src.scrollLeft + 2, 0, wrap.clientWidth - 260),
-    y: clamp(parseFloat(cs.paddingTop) + (line + 1) * lh - src.scrollTop + 4, 0, wrap.clientHeight - 160)
+            x: clamp(parseFloat(cs.paddingLeft) + colTxt.length * cw - src.scrollLeft + 2, 0, wrap.clientWidth - 260),
+            y: clamp(parseFloat(cs.paddingTop) + (line + 1) * lh - src.scrollTop + 4, 0, wrap.clientHeight - 160)
         };
     }
     function closeAc() { snipMenu.classList.remove('open'); acList = []; acCtx = null; }
@@ -1578,9 +1578,9 @@ export function mountEngine() {
     function inEntityBlock(pos) {
         let depth = 0;
         for (const l of src.value.slice(0, pos).split('\n')) {
-    const t = l.trim();
-    if (/^\}+\s*$/.test(t)) { depth = Math.max(0, depth - 1); continue; }
-    if (/\{\s*$/.test(t) && !/[|}]/.test(t)) depth++;
+            const t = l.trim();
+            if (/^\}+\s*$/.test(t)) { depth = Math.max(0, depth - 1); continue; }
+            if (/\{\s*$/.test(t) && !/[|}]/.test(t)) depth++;
         }
         return depth > 0;
     }
@@ -1596,17 +1596,17 @@ export function mountEngine() {
         const wStart = pos - word.length;
         const tokens = line.trim().split(/\s+/).filter(Boolean);
         if (inEntityBlock(pos) && !/^\s*\}/.test(line)) {
-    if (tokens.length <= 1 && !/\s/.test(line)) return { mode: 'type', prefix: word, wStart };
-    if (tokens.length >= 1 && /\s/.test(line)) return { mode: 'key', prefix: word, wStart };
-    return null;
+            if (tokens.length <= 1 && !/\s/.test(line)) return { mode: 'type', prefix: word, wStart };
+            if (tokens.length >= 1 && /\s/.test(line)) return { mode: 'key', prefix: word, wStart };
+            return null;
         }
         if (!tokens.length) return null;
         if (tokens.length === 1 && !/\s$/.test(line)) return null;                 /* digitando 1ª palavra fora de bloco */
         if (tokens.length === 1) return { mode: 'conn', prefix: word, wStart };    /* "A " → conectores */
         if (tokens.length === 2) {
-    if (/^[|}]/.test(tokens[1])) return { mode: 'entity', prefix: word, wStart }; /* "A ||--o{ " → entidades */
-    if (/^[|}]/.test(word)) return { mode: 'conn', prefix: word, wStart };
-    return null;
+            if (/^[|}]/.test(tokens[1])) return { mode: 'entity', prefix: word, wStart }; /* "A ||--o{ " → entidades */
+            if (/^[|}]/.test(word)) return { mode: 'conn', prefix: word, wStart };
+            return null;
         }
         if (tokens.length === 3 && /^[A-Za-z_]/.test(tokens[2])) return { mode: 'entity', prefix: word, wStart };
         return null;
@@ -1617,24 +1617,24 @@ export function mountEngine() {
         acList = [];
         const p = (acCtx.prefix || '').toLowerCase();
         if (acCtx.mode === 'slash')
-    acList = SNIPPETS.filter(s => s.cmd.startsWith(acCtx.qr.q.toLowerCase())).map(s => ({ label: s.cmd, desc: s.desc, snippet: s }));
+            acList = SNIPPETS.filter(s => s.cmd.startsWith(acCtx.qr.q.toLowerCase())).map(s => ({ label: s.cmd, desc: s.desc, snippet: s }));
         else if (acCtx.mode === 'type')
-    acList = TYPES.filter(t => t[0].toLowerCase().startsWith(p)).map(t => ({ label: t[0], desc: t[1], insert: t[0] + ' ' }));
+            acList = TYPES.filter(t => t[0].toLowerCase().startsWith(p)).map(t => ({ label: t[0], desc: t[1], insert: t[0] + ' ' }));
         else if (acCtx.mode === 'key')
-    acList = KEYS.filter(t => t[0].toLowerCase().startsWith(p)).map(t => ({ label: t[0], desc: t[1], insert: t[0] }));
+            acList = KEYS.filter(t => t[0].toLowerCase().startsWith(p)).map(t => ({ label: t[0], desc: t[1], insert: t[0] }));
         else if (acCtx.mode === 'conn')
-    acList = CONNS.filter(t => t[0].startsWith(acCtx.prefix)).map(t => ({ label: t[0], desc: t[1], insert: t[0] + ' ' }));
+            acList = CONNS.filter(t => t[0].startsWith(acCtx.prefix)).map(t => ({ label: t[0], desc: t[1], insert: t[0] + ' ' }));
         else if (acCtx.mode === 'entity')
-    acList = entityNames().filter(n => n.toLowerCase().startsWith(p)).map(n => ({ label: n, desc: 'entidade', insert: n + ' ' }));
+            acList = entityNames().filter(n => n.toLowerCase().startsWith(p)).map(n => ({ label: n, desc: 'entidade', insert: n + ' ' }));
         if (!acList.length) { closeAc(); return; }
         acSel = 0;
         snipMenu.textContent = '';
         acList.forEach((it, i) => {
-    const d = document.createElement('div');
-    d.className = 'snip-item' + (i === acSel ? ' on' : '');
-    d.innerHTML = `<span class="cmd">${esc(it.label)}</span><span class="desc">${esc(it.desc)}</span>`;
-    d.onmousedown = e => { e.preventDefault(); acceptAc(it); };
-    snipMenu.append(d);
+            const d = document.createElement('div');
+            d.className = 'snip-item' + (i === acSel ? ' on' : '');
+            d.innerHTML = `<span class="cmd">${esc(it.label)}</span><span class="desc">${esc(it.desc)}</span>`;
+            d.onmousedown = e => { e.preventDefault(); acceptAc(it); };
+            snipMenu.append(d);
         });
         const cp = caretXY();
         snipMenu.style.left = cp.x + 'px'; snipMenu.style.top = cp.y + 'px';
@@ -1655,19 +1655,19 @@ export function mountEngine() {
         let text = '', last = 0, m;
         const re = /\$\{(\d+):([^}]*)\}/g;
         while ((m = re.exec(s.body))) {
-    text += s.body.slice(last, m.index);              /* texto literal entre placeholders */
-    stops[+m[1]] = { at: text.length, len: m[2].length };
-    text += m[2];
-    last = m.index + m[0].length;
+            text += s.body.slice(last, m.index);              /* texto literal entre placeholders */
+            stops[+m[1]] = { at: text.length, len: m[2].length };
+            text += m[2];
+            last = m.index + m[0].length;
         }
         text += s.body.slice(last);
         const pos = qr.start, end = src.selectionStart;
         src.value = src.value.slice(0, pos) + text + src.value.slice(end);
         pushHistory();
         const resolved = stops
-    .map((st, n) => st && { start: pos + st.at, len: st.len, n })
-    .filter(Boolean)
-    .sort((a, b) => a.n - b.n);
+            .map((st, n) => st && { start: pos + st.at, len: st.len, n })
+            .filter(Boolean)
+            .sort((a, b) => a.n - b.n);
         src.selectionStart = src.selectionEnd = pos + text.length;
         lastLen = src.value.length; lastCaret = pos + text.length; lastSel = pos + text.length;
         snipState = resolved.length ? { stops: resolved, idx: 0 } : null;
@@ -1689,8 +1689,8 @@ export function mountEngine() {
         if (!snipState) return;
         const delta = inserted - removed;
         for (const st of snipState.stops) {
-    if (st.start > caretBefore) st.start += delta;
-    else if (st.start + st.len >= caretBefore) st.len += delta;
+            if (st.start > caretBefore) st.start += delta;
+            else if (st.start + st.len >= caretBefore) st.len += delta;
         }
     }
 
@@ -1702,13 +1702,13 @@ export function mountEngine() {
     function updateGutter() {
         const n = src.value.split('\n').length;
         if (n !== gutterCount) {
-    gutterCount = n;
-    gutterIn.textContent = '';
-    for (let i = 1; i <= n; i++) {
-        const s = document.createElement('span');
-        s.textContent = i;
-        gutterIn.append(s);
-    }
+            gutterCount = n;
+            gutterIn.textContent = '';
+            for (let i = 1; i <= n; i++) {
+                const s = document.createElement('span');
+                s.textContent = i;
+                gutterIn.append(s);
+            }
         }
         const line = src.value.slice(0, src.selectionStart).split('\n').length - 1;
         [...gutterIn.children].forEach((el, i) => el.classList.toggle('cur', i === line));
@@ -1755,18 +1755,18 @@ export function mountEngine() {
         if (document.getElementById('snipMenu').classList.contains('open')) return; /* aguarda snippet ser resolvido */
         clearTimeout(applyT);
         applyT = setTimeout(() => {
-    const ok = applySource(src.value);
-    if (ok && !applyingRemote) peerSend({ t: 'state', code: src.value });
-    if (ok && autoFmt && (!model.type || model.type === 'er')) {
-        /* só reformata se a saída difere (evita loop) */
-        const f = buildFormatted();
-        if (f != null && f !== src.value) {
-            pushHistory();
-            src.value = f;
-            lastLen = f.length; lastCaret = 0; lastSel = 0; snipState = null;
-            renderHighlight(); updateGutter(); applySource(f);
-        }
-    }
+            const ok = applySource(src.value);
+            if (ok && !applyingRemote) peerSend({ t: 'state', code: src.value });
+            if (ok && autoFmt && (!model.type || model.type === 'er')) {
+                /* só reformata se a saída difere (evita loop) */
+                const f = buildFormatted();
+                if (f != null && f !== src.value) {
+                    pushHistory();
+                    src.value = f;
+                    lastLen = f.length; lastCaret = 0; lastSel = 0; snipState = null;
+                    renderHighlight(); updateGutter(); applySource(f);
+                }
+            }
         }, 600);
     }
     function applyNow(showToast) {
@@ -1777,9 +1777,9 @@ export function mountEngine() {
     src.addEventListener('input', () => {
         /* digitação: agrupa rajadas de até 500ms num único passo de undo */
         if (Date.now() - lastPushAt > 500 && beforeState) {
-    undoStack.push(beforeState);
-    if (undoStack.length > HIST_LIMIT) undoStack.shift();
-    redoStack.length = 0;
+            undoStack.push(beforeState);
+            if (undoStack.length > HIST_LIMIT) undoStack.shift();
+            redoStack.length = 0;
         }
         lastPushAt = Date.now();
         const pos = src.selectionStart;
@@ -1807,16 +1807,16 @@ export function mountEngine() {
         /* 1) nome de entidade na própria linha (o mais próximo do cursor) */
         const col = pos - lineStart;
         const cands = [...line.matchAll(/[A-Za-z_][\w.\-]*/g)]
-    .filter(m => byId[m[0]])
-    .sort((a, b) => Math.abs(a.index - col) - Math.abs(b.index - col));
+            .filter(m => byId[m[0]])
+            .sort((a, b) => Math.abs(a.index - col) - Math.abs(b.index - col));
         if (cands.length) return cands[0][0];
         /* 2) dentro de um bloco ENT { ... } */
         let cur = null;
         for (const l of src.value.slice(0, lineStart).split('\n')) {
-    const t = l.trim();
-    const o = t.match(/^([A-Za-z_][\w.\-]*)\s*\{$/);
-    if (o) cur = o[1];
-    else if (/^\}+\s*$/.test(t)) cur = null;
+            const t = l.trim();
+            const o = t.match(/^([A-Za-z_][\w.\-]*)\s*\{$/);
+            if (o) cur = o[1];
+            else if (/^\}+\s*$/.test(t)) cur = null;
         }
         return cur && byId[cur] ? cur : null;
     }
@@ -1834,16 +1834,16 @@ export function mountEngine() {
     src.addEventListener('keydown', e => {
         const menuOpen = snipMenu.classList.contains('open');
         if (menuOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-    e.preventDefault();
-    acSel = (acSel + (e.key === 'ArrowDown' ? 1 : acList.length - 1)) % acList.length;
-    [...snipMenu.children].forEach((el, i) => el.classList.toggle('on', i === acSel));
-    snipMenu.children[acSel].scrollIntoView({ block: 'nearest' });
-    return;
+            e.preventDefault();
+            acSel = (acSel + (e.key === 'ArrowDown' ? 1 : acList.length - 1)) % acList.length;
+            [...snipMenu.children].forEach((el, i) => el.classList.toggle('on', i === acSel));
+            snipMenu.children[acSel].scrollIntoView({ block: 'nearest' });
+            return;
         }
         if (menuOpen && (e.key === 'Enter' || (e.key === 'Tab' && acCtx && acCtx.mode === 'slash'))) {
-    e.preventDefault();
-    acceptAc(acList[acSel]);
-    return;
+            e.preventDefault();
+            acceptAc(acList[acSel]);
+            return;
         }
         if (menuOpen && e.key === 'Tab') { e.preventDefault(); closeAc(); return; } /* fora do slash: Tab fecha menu e indentA */
         if (e.key === 'Escape' && menuOpen) { e.preventDefault(); closeAc(); return; }
@@ -1851,9 +1851,9 @@ export function mountEngine() {
 
         /* Ctrl+Z desfaz · Ctrl+Shift+Z / Ctrl+Y refaz */
         if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
-    e.preventDefault();
-    if (e.shiftKey) redo(); else undo();
-    return;
+            e.preventDefault();
+            if (e.shiftKey) redo(); else undo();
+            return;
         }
         if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
 
@@ -1861,90 +1861,90 @@ export function mountEngine() {
         if ((e.ctrlKey || e.metaKey) && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); formatCode(); return; }
         /* Ctrl+X sem seleção = recorta a linha inteira */
         if ((e.ctrlKey || e.metaKey) && (e.key === 'x' || e.key === 'X') && src.selectionStart === src.selectionEnd) {
-    e.preventDefault();
-    pushHistory();
-    const s = src.selectionStart;
-    const ls = src.value.lastIndexOf('\n', s - 1) + 1;
-    let le = src.value.indexOf('\n', s); if (le === -1) le = src.value.length; else le += 1;
-    const cut = src.value.slice(ls, le);
-    src.value = src.value.slice(0, ls) + src.value.slice(le);
-    src.selectionStart = src.selectionEnd = Math.min(ls, src.value.length);
-    navigator.clipboard?.writeText(cut).catch(() => {});
-    lastLen = src.value.length; lastCaret = ls; lastSel = ls; snipState = null;
-    renderHighlight(); updateGutter(); scheduleApply();
-    return;
+            e.preventDefault();
+            pushHistory();
+            const s = src.selectionStart;
+            const ls = src.value.lastIndexOf('\n', s - 1) + 1;
+            let le = src.value.indexOf('\n', s); if (le === -1) le = src.value.length; else le += 1;
+            const cut = src.value.slice(ls, le);
+            src.value = src.value.slice(0, ls) + src.value.slice(le);
+            src.selectionStart = src.selectionEnd = Math.min(ls, src.value.length);
+            navigator.clipboard?.writeText(cut).catch(() => { });
+            lastLen = src.value.length; lastCaret = ls; lastSel = ls; snipState = null;
+            renderHighlight(); updateGutter(); scheduleApply();
+            return;
         }
         /* Enter com indentação automática: segue a linha de cima; abre bloco = +4 espaços */
         if (e.key === 'Enter' && !menuOpen && src.selectionStart === src.selectionEnd) {
-    e.preventDefault();
-    pushHistory();
-    const s = src.selectionStart;
-    const before = src.value.slice(0, s), after = src.value.slice(s);
-    const ls = before.lastIndexOf('\n') + 1;
-    const line = before.slice(ls);
-    const indent = line.match(/^\s*/)[0];
-    let ins = '\n' + indent, caret = s + ins.length;
-    if (/\{\s*$/.test(line) && /^\s*\}/.test(after)) {
-        ins = '\n' + indent + '    \n' + indent;              /* expande {|} */
-        caret = s + 1 + indent.length + 4;
-    } else if (/\{\s*$/.test(line)) {
-        ins = '\n' + indent + '    ';
-        caret = s + ins.length;
-    }
-    src.value = before + ins + after;
-    src.selectionStart = src.selectionEnd = caret;
-    lastLen = src.value.length; lastCaret = caret; lastSel = caret; snipState = null;
-    renderHighlight(); updateGutter(); scheduleApply(); renderAc();
-    return;
+            e.preventDefault();
+            pushHistory();
+            const s = src.selectionStart;
+            const before = src.value.slice(0, s), after = src.value.slice(s);
+            const ls = before.lastIndexOf('\n') + 1;
+            const line = before.slice(ls);
+            const indent = line.match(/^\s*/)[0];
+            let ins = '\n' + indent, caret = s + ins.length;
+            if (/\{\s*$/.test(line) && /^\s*\}/.test(after)) {
+                ins = '\n' + indent + '    \n' + indent;              /* expande {|} */
+                caret = s + 1 + indent.length + 4;
+            } else if (/\{\s*$/.test(line)) {
+                ins = '\n' + indent + '    ';
+                caret = s + ins.length;
+            }
+            src.value = before + ins + after;
+            src.selectionStart = src.selectionEnd = caret;
+            lastLen = src.value.length; lastCaret = caret; lastSel = caret; snipState = null;
+            renderHighlight(); updateGutter(); scheduleApply(); renderAc();
+            return;
         }
 
         /* auto-fecho de { → insere } logo após (blocos de entidade) */
         if (e.key === '{') {
-    const pos = src.selectionStart, after = src.value.slice(src.selectionEnd);
-    if (/^([\s]|$)/.test(after) && src.selectionStart === src.selectionEnd) {
-        e.preventDefault();
-        pushHistory();
-        src.value = src.value.slice(0, pos) + '{}' + src.value.slice(pos);
-        src.selectionStart = src.selectionEnd = pos + 1;
-        lastLen = src.value.length; lastCaret = pos + 1; lastSel = pos + 1;
-        renderHighlight(); scheduleApply(); renderAc();
-    }
-    return;
+            const pos = src.selectionStart, after = src.value.slice(src.selectionEnd);
+            if (/^([\s]|$)/.test(after) && src.selectionStart === src.selectionEnd) {
+                e.preventDefault();
+                pushHistory();
+                src.value = src.value.slice(0, pos) + '{}' + src.value.slice(pos);
+                src.selectionStart = src.selectionEnd = pos + 1;
+                lastLen = src.value.length; lastCaret = pos + 1; lastSel = pos + 1;
+                renderHighlight(); scheduleApply(); renderAc();
+            }
+            return;
         }
         if (e.key === '}') {
-    /* se o próximo caractere é o } auto-inserido, só pula por cima */
-    if (src.selectionStart === src.selectionEnd && src.value[src.selectionStart] === '}') {
-        e.preventDefault();
-        src.selectionStart = src.selectionEnd = src.selectionStart + 1;
-    }
-    return;
+            /* se o próximo caractere é o } auto-inserido, só pula por cima */
+            if (src.selectionStart === src.selectionEnd && src.value[src.selectionStart] === '}') {
+                e.preventDefault();
+                src.selectionStart = src.selectionEnd = src.selectionStart + 1;
+            }
+            return;
         }
 
         if (e.key === 'Tab') {
-    e.preventDefault();
-    const cur = snipState && snipState.stops[snipState.idx];
-    /* está no campo atual se o cursor está dentro do range do placeholder
-       (depois de digitar, o cursor fica colapsado no fim do texto) */
-    if (snipState && cur && src.selectionStart >= cur.start && src.selectionEnd <= cur.start + cur.len && src.selectionEnd >= cur.start) {
-        cur.len = src.selectionEnd - cur.start; /* consolida o que foi digitado */
-        const nxt = snipState.idx + 1;
-        if (nxt < snipState.stops.length) jumpStop(nxt);
-        else { snipState = null; src.selectionStart = src.selectionEnd = cur.start + cur.len; }
-        return;
-    }
-    snipState = null;
-    const s = src.selectionStart, en = src.selectionEnd;
-    if (s !== en) {
-        /* indentação de bloco selecionado */
-        const st = src.value.lastIndexOf('\n', s - 1) + 1;
-        src.value = src.value.slice(0, st) + src.value.slice(st, en).replace(/^/gm, '    ') + src.value.slice(en);
-        src.selectionStart = st; src.selectionEnd = en + 4 * (src.value.slice(st, en).split('\n').length);
-    } else {
-        src.value = src.value.slice(0, s) + '    ' + src.value.slice(en);
-        src.selectionStart = src.selectionEnd = s + 4;
-    }
-    lastLen = src.value.length; lastCaret = src.selectionStart; lastSel = src.selectionEnd;
-    renderHighlight(); scheduleApply();
+            e.preventDefault();
+            const cur = snipState && snipState.stops[snipState.idx];
+            /* está no campo atual se o cursor está dentro do range do placeholder
+               (depois de digitar, o cursor fica colapsado no fim do texto) */
+            if (snipState && cur && src.selectionStart >= cur.start && src.selectionEnd <= cur.start + cur.len && src.selectionEnd >= cur.start) {
+                cur.len = src.selectionEnd - cur.start; /* consolida o que foi digitado */
+                const nxt = snipState.idx + 1;
+                if (nxt < snipState.stops.length) jumpStop(nxt);
+                else { snipState = null; src.selectionStart = src.selectionEnd = cur.start + cur.len; }
+                return;
+            }
+            snipState = null;
+            const s = src.selectionStart, en = src.selectionEnd;
+            if (s !== en) {
+                /* indentação de bloco selecionado */
+                const st = src.value.lastIndexOf('\n', s - 1) + 1;
+                src.value = src.value.slice(0, st) + src.value.slice(st, en).replace(/^/gm, '    ') + src.value.slice(en);
+                src.selectionStart = st; src.selectionEnd = en + 4 * (src.value.slice(st, en).split('\n').length);
+            } else {
+                src.value = src.value.slice(0, s) + '    ' + src.value.slice(en);
+                src.selectionStart = src.selectionEnd = s + 4;
+            }
+            lastLen = src.value.length; lastCaret = src.selectionStart; lastSel = src.selectionEnd;
+            renderHighlight(); scheduleApply();
         }
     });
     window.addEventListener('keydown', e => {
@@ -2012,17 +2012,17 @@ export function mountEngine() {
         panel.classList.add('resizing');
         const startX = e.clientX, startW = panel.getBoundingClientRect().width;
         const move = ev => {
-    const w = clamp(Math.round(startW + (ev.clientX - startX)), 260, 720);
-    panel.style.width = w + 'px';
+            const w = clamp(Math.round(startW + (ev.clientX - startX)), 260, 720);
+            panel.style.width = w + 'px';
         };
         const up = ev => {
-    panelResize.releasePointerCapture(e.pointerId);
-    panelResize.classList.remove('dragging');
-    panel.classList.remove('resizing');
-    panelResize.removeEventListener('pointermove', move);
-    panelResize.removeEventListener('pointerup', up);
-    store.set('panelW', String(clamp(Math.round(panel.getBoundingClientRect().width), 260, 720)));
-    applyView();
+            panelResize.releasePointerCapture(e.pointerId);
+            panelResize.classList.remove('dragging');
+            panel.classList.remove('resizing');
+            panelResize.removeEventListener('pointermove', move);
+            panelResize.removeEventListener('pointerup', up);
+            store.set('panelW', String(clamp(Math.round(panel.getBoundingClientRect().width), 260, 720)));
+            applyView();
         };
         panelResize.addEventListener('pointermove', move);
         panelResize.addEventListener('pointerup', up);
@@ -2072,14 +2072,14 @@ export function mountEngine() {
         setTheme(store.get('theme') || 'light');
         if (store.get('panel') === '0' || innerWidth < 861) panel.classList.add('hidden');
         try {
-    await Promise.all([
-        document.fonts.load('600 12px "Space Grotesk"'),
-        document.fonts.load('500 12px "JetBrains Mono"'),
-        document.fonts.load('400 11px "JetBrains Mono"'),
-        document.fonts.load('italic 400 11px "JetBrains Mono"'),
-        document.fonts.load('700 8.5px "JetBrains Mono"'),
-        document.fonts.load('600 9.5px "JetBrains Mono"')
-    ]);
+            await Promise.all([
+                document.fonts.load('600 12px "Space Grotesk"'),
+                document.fonts.load('500 12px "JetBrains Mono"'),
+                document.fonts.load('400 11px "JetBrains Mono"'),
+                document.fonts.load('italic 400 11px "JetBrains Mono"'),
+                document.fonts.load('700 8.5px "JetBrains Mono"'),
+                document.fonts.load('600 9.5px "JetBrains Mono"')
+            ]);
         } catch (e) { }
         try { positions = JSON.parse(store.get('pos')) || {}; } catch (e) { positions = {}; }
         const shared = loadSharedCode();
