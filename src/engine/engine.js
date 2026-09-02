@@ -695,6 +695,7 @@ export function mountEngine() {
     /* ══════════ 07-edges.js ══════════ */
     /* ══════════ arestas crow's foot (estilo mermaid) ══════════ */
     const CARD_TEXT = { one: '1', zero_one: '0..1', one_more: '1..N', zero_more: '0..N' };
+    const CARD_PHRASE = { one: 'exatamente um', zero_one: 'no máximo um', one_more: 'um ou muitos', zero_more: 'zero ou muitos' };
 
     /* glifo construído por DOM nativo (sem innerHTML, à prova de namespace).
        Origem local (0,0) = centro da borda da entidade; +x aponta para fora
@@ -715,9 +716,11 @@ export function mountEngine() {
         w.append(crowGlyph(type));
         return w;
     }
-    function cardBadge(txt) {
+    function cardBadge(txt, tip) {
         const w = Math.round(tw(txt, F.card)) + 10;
         const g = svgEl('g', { class: 'e-card' });
+        const ti = document.createElementNS(NS, 'title');
+        ti.textContent = tip || txt; g.append(ti);
         g.append(svgEl('rect', { x: -w / 2, y: -7, width: w, height: 14, rx: 7 }));
         const t = svgEl('text', { 'text-anchor': 'middle', y: 3 }); t.textContent = txt;
         g.append(t);
@@ -744,7 +747,8 @@ export function mountEngine() {
         gEdges.textContent = ''; gTop.textContent = ''; edgeNodes = [];
         if (model.type === 'seq') return buildSeqEdges(animate);
         for (const rel of model.relations) {
-            const a = byId[rel.a], b = byId[rel.b]; if (!a || !b || rel.a === rel.b) continue;
+            const a = byId[rel.a], b = byId[rel.b]; if (!a || !b) continue;
+            const self = rel.a === rel.b;
             /* linha: camada de baixo */
             const g = svgEl('g', { class: 'edge' + (rel.dash ? ' dash' : '') });
             const line = svgEl('path', { class: 'e-line' });
@@ -752,15 +756,15 @@ export function mountEngine() {
             /* símbolos + selos + rótulo: camada de cima (nunca atrás das tabelas) */
             const ma = rel.simple ? simpleMarker(rel.aMk) : crowMarker(rel.ac);
             const mb = rel.simple ? simpleMarker(rel.bMk) : crowMarker(rel.bc);
-            const ba = rel.simple ? svgEl('g') : cardBadge(CARD_TEXT[rel.ac]);
-            const bb = rel.simple ? svgEl('g') : cardBadge(CARD_TEXT[rel.bc]);
+            const ba = rel.simple ? svgEl('g') : cardBadge(CARD_TEXT[rel.ac], `cada ${rel.b} se liga a ${CARD_PHRASE[rel.ac]} ${rel.a}`);
+            const bb = rel.simple ? svgEl('g') : cardBadge(CARD_TEXT[rel.bc], `cada ${rel.a} tem ${CARD_PHRASE[rel.bc]} ${rel.b}`);
             const lg = svgEl('g', { class: 'e-label' });
             const lw = tw(rel.label || ' ', F.label) + 16;
             const lr = svgEl('rect', { width: lw, height: 18, rx: 9 });
             const lt = svgEl('text', { 'text-anchor': 'middle' }); lt.textContent = rel.label;
             lg.append(lr, lt);
             gTop.append(ma, mb, ba, bb, lg);
-            edgeNodes.push({ rel, g, line, ma, mb, ba, bb, lg, lr, lt, lw });
+            edgeNodes.push({ rel, self, g, line, ma, mb, ba, bb, lg, lr, lt, lw });
         }
         updateEdgeGeometry();
         if (animate && edgeNodes.length) {
@@ -838,9 +842,17 @@ export function mountEngine() {
         for (const E of edgeNodes) {
             if (E.seq) { updateSeqEdge(E); continue; }
             const a = byId[E.rel.a], b = byId[E.rel.b]; if (!a || !b) continue;
-            const it = { E, a, b, A: anchor(a, b), B: anchor(b, a), aOff: 0, bOff: 0 };
+            let A, B;
+            if (E.self) {
+                /* laço: sai e volta pela mesma face da entidade */
+                A = { x: a.x + a.w, y: a.y + a.h * 0.32, dx: 1, dy: 0 };
+                B = { x: a.x + a.w, y: a.y + a.h * 0.68, dx: 1, dy: 0 };
+            } else {
+                A = anchor(a, b); B = anchor(b, a);
+            }
+            const it = { E, a, b, A, B, aOff: 0, bOff: 0 };
             items.push(it);
-            for (const [ent, P, side] of [[a, it.A, 'a'], [b, it.B, 'b']]) {
+            if (!E.self) for (const [ent, P, side] of [[a, it.A, 'a'], [b, it.B, 'b']]) {
                 const k = ent.name + '|' + P.dx + ',' + P.dy;
                 if (!groups.has(k)) groups.set(k, []);
                 groups.get(k).push({ it, side });
@@ -858,6 +870,10 @@ export function mountEngine() {
             const o = clamp(off, -lim, lim);
             return P.dx ? { x: P.x, y: P.y + o, dx: P.dx, dy: P.dy } : { x: P.x + o, y: P.y, dx: P.dx, dy: P.dy };
         };
+        /* anti-colisão de rótulos: empurra verticalmente o primeiro que sobrepõe */
+        const placed = [];
+        const boxOf = (x, y, w) => ({ x: x - w / 2 - 4, y: y - 12, w: w + 8, h: 24 });
+        const hit = bx => placed.some(p => Math.abs(bx.x - p.x) < (bx.w + p.w) / 2 && Math.abs(bx.y - p.y) < (bx.h + p.h) / 2);
         for (const it of items) {
             const E = it.E;
             const A = spread(it.A, it.a, it.aOff), B = spread(it.B, it.b, it.bOff);
@@ -871,7 +887,15 @@ export function mountEngine() {
             E.ba.setAttribute('transform', `translate(${A.x + A.dx * bo + A.dy * po} ${A.y + A.dy * bo - A.dx * po}) scale(${ms})`);
             E.bb.setAttribute('transform', `translate(${B.x + B.dx * bo + B.dy * po} ${B.y + B.dy * bo - B.dx * po}) scale(${ms})`);
             const mx = (A.x + 3 * c1x + 3 * c2x + B.x) / 8, my = (A.y + 3 * c1y + 3 * c2y + B.y) / 8;
-            E.lg.setAttribute('transform', `translate(${mx} ${my})`);
+            let ly = my;
+            const bx = boxOf(mx, my, E.lw);
+            if (hit(bx)) {
+                for (const d of [-26, 26, -52, 52, -78, 78]) {
+                    if (!hit(boxOf(mx, my + d, E.lw))) { ly = my + d; break; }
+                }
+            }
+            placed.push(boxOf(mx, ly, E.lw));
+            E.lg.setAttribute('transform', `translate(${mx} ${ly})`);
             E.lr.setAttribute('x', -E.lw / 2); E.lr.setAttribute('y', -9);
             E.lt.setAttribute('y', 3.5);
         }

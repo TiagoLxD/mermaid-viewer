@@ -799,6 +799,11 @@ textarea::-webkit-scrollbar-thumb {
     pointer-events: none
 }
 
+/* selos de cardinalidade recebem hover para o tooltip (<title>) */
+.e-card rect {
+    pointer-events: all
+}
+
 .edge {
     color: var(--edge)
 }
