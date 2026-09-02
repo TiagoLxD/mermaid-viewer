@@ -831,10 +831,36 @@ export function mountEngine() {
         /* compensação de zoom: símbolos e selos não encolhem demais ao reduzir */
         const ms = clamp(1 / (vw() / cam.w), 1, 1.7);
         const bo = 38 * ms, po = 14 * ms;
+        /* várias ligações na mesma face da entidade: espalha as âncoras ao longo
+           da borda para pés de galinha e selos de cardinalidade não se empilhar */
+        const FACE_GAP = 30 * ms;
+        const groups = new Map(), items = [];
         for (const E of edgeNodes) {
             if (E.seq) { updateSeqEdge(E); continue; }
             const a = byId[E.rel.a], b = byId[E.rel.b]; if (!a || !b) continue;
-            const A = anchor(a, b), B = anchor(b, a);
+            const it = { E, a, b, A: anchor(a, b), B: anchor(b, a), aOff: 0, bOff: 0 };
+            items.push(it);
+            for (const [ent, P, side] of [[a, it.A, 'a'], [b, it.B, 'b']]) {
+                const k = ent.name + '|' + P.dx + ',' + P.dy;
+                if (!groups.has(k)) groups.set(k, []);
+                groups.get(k).push({ it, side });
+            }
+        }
+        for (const list of groups.values()) {
+            list.forEach((g, i) => {
+                g.it[g.side + 'Off'] = (i - (list.length - 1) / 2) * FACE_GAP;
+            });
+        }
+        /* desloca a âncora ao longo da face (vertical: eixo y; horizontal: eixo x) */
+        const spread = (P, ent, off) => {
+            if (!off) return P;
+            const lim = (P.dx ? ent.h : ent.w) / 2 - 16;
+            const o = clamp(off, -lim, lim);
+            return P.dx ? { x: P.x, y: P.y + o, dx: P.dx, dy: P.dy } : { x: P.x + o, y: P.y, dx: P.dx, dy: P.dy };
+        };
+        for (const it of items) {
+            const E = it.E;
+            const A = spread(it.A, it.a, it.aOff), B = spread(it.B, it.b, it.bOff);
             const dist = Math.hypot(B.x - A.x, B.y - A.y);
             const off = clamp(dist * 0.45, 40, 150);
             const c1x = A.x + A.dx * off, c1y = A.y + A.dy * off, c2x = B.x + B.dx * off, c2y = B.y + B.dy * off;

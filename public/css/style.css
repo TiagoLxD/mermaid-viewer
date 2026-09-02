@@ -882,7 +882,8 @@ textarea::-webkit-scrollbar-thumb {
 
 .e-card text {
     fill: var(--ink2);
-    font: 600 9.5px var(--mono)
+    font: 600 9.5px var(--mono);
+    letter-spacing: -.06em
 }
 
 .e-card.on rect {
