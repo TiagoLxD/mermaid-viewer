@@ -129,7 +129,7 @@ export default function EngineHost() {
             <div id="docsBackdrop" />
             <aside id="docs" aria-label="Documentação da linguagem Mermaid ER">
                 <div className="docs-head">
-                    <span className="panel-title">referência · erDiagram</span>
+                    <span className="panel-title">referência · linguagem</span>
                     <button id="btnDocsClose" className="btn ghost icon-btn" data-icon="x" title="Fechar (Esc)"
                         aria-label="Fechar documentação"></button>
                 </div>
@@ -137,6 +137,13 @@ export default function EngineHost() {
 
                     <section>
                         <h4>Como funciona</h4>
+                        <p>O Meridian entende <b>quatro tipos de diagrama</b> Mermaid. A primeira linha do código define o
+                            tipo: <code>erDiagram</code>, <code>flowchart</code>, <code>sequenceDiagram</code> ou
+                            <code>classDiagram</code>. Use o seletor <b>“Tipo…”</b> no topo para começar um esqueleto em branco.</p>
+                    </section>
+
+                    <section>
+                        <h4>Diagrama ER</h4>
                         <p>Cada linha descreve uma <b>relação</b> entre duas entidades; cada bloco <code>{'ENTIDADE { … }'}</code>
                             lista os <b>atributos</b>. O diagrama é redesenhado automaticamente conforme o código é digitado.
                         </p>
@@ -205,6 +212,34 @@ export default function EngineHost() {
                             <button className="chip" data-tpl="ENTIDADE_A ||..o{ ENTIDADE_B : relacionamento">1 — N ·
                                 tracejada</button>
                         </div>
+                    </section>
+
+                    <section>
+                        <h4>Flowchart</h4>
+                        <p>Fluxos com <code>flowchart TD</code>. Cada nó tem um <b>id</b> e um formato: <code>[texto]</code>
+                            retângulo, <code>(texto)</code> estádio (início/fim) e <code>{'{'}texto{'}'}</code> losango
+                            (decisão). Setas <code>--&gt;</code> ligam os nós; <code>-.-&gt;</code> deixa tracejada;
+                            <code>|texto|</code> entre as pontas coloca um rótulo na seta.</p>
+                        <pre className="d-code" dangerouslySetInnerHTML={{ __html: "<span className=\"kw\">flowchart TD</span>\n        Inicio[Carrinho] --&gt; E{Estoque?}\n        E --&gt;|sim| PG[Pagar]\n        E -.&gt;|não| CA[Aguardar]\n        PG --&gt; Fim[(Enviado)]" }}></pre>
+                    </section>
+
+                    <section>
+                        <h4>Diagrama de sequência</h4>
+                        <p>Com <code>sequenceDiagram</code>, declare os participantes com <code>participant</code> (ou
+                            <code>actor</code>, opcionalmente com <code>as Apelido</code>). Mensagens ligam dois
+                            participantes: <code>-&gt;&gt;</code> chamada sólida e <code>--&gt;&gt;</code> resposta
+                            tracejada, sempre no formato <code>A -&gt;&gt; B : texto</code>. A ordem das linhas define a
+                            ordem vertical das mensagens.</p>
+                        <pre className="d-code" dangerouslySetInnerHTML={{ __html: "<span className=\"kw\">sequenceDiagram</span>\n        participant U as Usuário\n        participant A as API\n        U -&gt;&gt; A: login(email, senha)\n        A --&gt;&gt; U: token JWT" }}></pre>
+                    </section>
+
+                    <section>
+                        <h4>Diagrama de classes</h4>
+                        <p>Com <code>classDiagram</code>, relações entre classes usam setas próprias: <code>&lt;|--</code>
+                            herança, <code>*--</code> composição, <code>o--</code> agregação, <code>--&gt;</code>
+                            dependência e <code>..</code> ligação tracejada. Blocos <code>{'{'} …{'}'}</code> listam os
+                            membros (uma linha por membro).</p>
+                        <pre className="d-code" dangerouslySetInnerHTML={{ __html: "<span className=\"kw\">classDiagram</span>\n        Veiculo &lt;|-- Carro\n        Veiculo *-- Motor\n\n        class Carro {\n            +int portas\n            +abrirPortaMalas()\n        }" }}></pre>
                     </section>
 
                     <section>
