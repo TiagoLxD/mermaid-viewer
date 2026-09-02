@@ -1458,9 +1458,11 @@ export function mountEngine() {
         const wStart = pos - word.length;
         const tokens = line.trim().split(/\s+/).filter(Boolean);
         if (inEntityBlock(pos) && !/^\s*\}/.test(line)) {
-            if (tokens.length <= 1 && !/\s/.test(line)) return { mode: 'type', prefix: word, wStart };
-            if (tokens.length >= 1 && /\s/.test(line)) return { mode: 'key', prefix: word, wStart };
-            return null;
+            /* indentação não afeta a detecção: linha vazia/espços = tipos;
+               1ª palavra = tipos; depois do tipo + espaço = chaves (PK/FK/UK) */
+            if (!tokens.length) return { mode: 'type', prefix: word, wStart };
+            if (tokens.length === 1) return /\s$/.test(line) ? { mode: 'key', prefix: word, wStart } : { mode: 'type', prefix: word, wStart };
+            return { mode: 'key', prefix: word, wStart };
         }
         if (!tokens.length) return null;
         if (tokens.length === 1 && !/\s$/.test(line)) return null;                 /* digitando 1ª palavra fora de bloco */
