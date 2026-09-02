@@ -410,7 +410,7 @@ export function mountEngine() {
 
     /* ══════════ 05-layout.js ══════════ */
     /* ══════ layout: espaçamento garantido — usado por todos os modos ══════ */
-    const GAP_X = 110, GAP_Y = 100;
+    const GAP_X = 156, GAP_Y = 145;
 
     function resolveOverlaps(nodes, iters, gx = GAP_X, gy = GAP_Y) {
         for (let it = 0; it < iters; it++) {
@@ -505,7 +505,7 @@ export function mountEngine() {
     /* modo Camadas — hierarquia de cima para baixo (pais → filhas),
        colunas ordenadas por barycenter para reduzir cruzamentos */
     function layeredInto(nodes, links, n, GX = GAP_X, GY = GAP_Y) {
-    const GAP_X = GX, GAP_Y = GY; /* respiro extra no modo hierárquico */
+        const GAP_X = GX, GAP_Y = GY; /* respiro extra no modo hierárquico */
         const succ = Array.from({ length: n }, () => []), pred = Array.from({ length: n }, () => []);
         for (const [i, j] of links) { succ[i].push(j); pred[j].push(i); }
         const level = new Array(n).fill(0);
