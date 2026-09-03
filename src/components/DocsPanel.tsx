@@ -1,4 +1,5 @@
 import { Button } from '../shared/Button';
+import { MiniRel } from './diagram/edges';
 
 /** Código de exemplo com highlight simples (<span class="kw">…</span>). */
 function Code({ html }: { html: string }) {
@@ -98,28 +99,28 @@ export function DocsPanel() {
                         <h4>Cardinalidades</h4>
                         <div className="rel-row">
                             <code>|o · o|</code>
-                            <div className="mini" data-rel="zero_one -- zero_one" />
+                            <div className="mini"><MiniRel lc="zero_one" conn="--" rc="zero_one" /></div>
                             <span>
                                 zero ou um <b>0..1</b>
                             </span>
                         </div>
                         <div className="rel-row">
                             <code>||</code>
-                            <div className="mini" data-rel="one -- one" />
+                            <div className="mini"><MiniRel lc="one" conn="--" rc="one" /></div>
                             <span>
                                 exatamente um <b>1</b>
                             </span>
                         </div>
                         <div className="rel-row">
                             <code>{'}o · o{'}</code>
-                            <div className="mini" data-rel="zero_more -- zero_more" />
+                            <div className="mini"><MiniRel lc="zero_more" conn="--" rc="zero_more" /></div>
                             <span>
                                 zero ou muitos <b>0..N</b>
                             </span>
                         </div>
                         <div className="rel-row">
                             <code>{'}| · |{'}</code>
-                            <div className="mini" data-rel="one_more -- one_more" />
+                            <div className="mini"><MiniRel lc="one_more" conn="--" rc="one_more" /></div>
                             <span>
                                 um ou muitos <b>1..N</b>
                             </span>
@@ -136,12 +137,12 @@ export function DocsPanel() {
                         </p>
                         <div className="rel-row">
                             <code>--</code>
-                            <div className="mini" data-rel="one -- zero_more" />
+                            <div className="mini"><MiniRel lc="one" conn="--" rc="zero_more" /></div>
                             <span>sólida · identificante</span>
                         </div>
                         <div className="rel-row">
                             <code>..</code>
-                            <div className="mini" data-rel="one .. zero_more" />
+                            <div className="mini"><MiniRel lc="one" conn=".." rc="zero_more" /></div>
                             <span>tracejada · não-identificante</span>
                         </div>
                     </section>

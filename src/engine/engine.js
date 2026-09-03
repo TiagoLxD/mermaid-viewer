@@ -3,7 +3,8 @@
 
 import { parseMermaid } from './parser';
 import { F, tw } from './measure';
-import { mountTables } from '../components/diagram/Scene';
+import { mountTables, mountEdgeLines, mountEdgeOverlays } from '../components/diagram/Scene';
+import { computeEdges } from './edges-geom';
 import { highlightMermaid } from './highlight';
 import { buildFormatted } from './formatter';
 import { EXAMPLES } from './examples';
@@ -530,7 +531,7 @@ export function mountEngine() {
 
     /* ══════════ 06-tables.js ══════════ */
     /* ══════════ cena React: nós declarativos + delegação de interação ══════════ */
-    let model = { entities: [], relations: [] }, byId = {}, adj = {}, edgeNodes = [], positions = {};
+    let model = { entities: [], relations: [] }, byId = {}, adj = {}, positions = {};
     const SEQ_TOP = 118, SEQ_STEP = 46;
     const mmCollapsed = new Set(); /* ramos do mindmap recolhidos (por nome do nó) */
 
@@ -586,462 +587,42 @@ export function mountEngine() {
     });
 
     /* ══════════ 07-edges.js ══════════ */
-    /* ══════════ arestas crow's foot (estilo mermaid) ══════════ */
-    const CARD_TEXT = { one: '1', zero_one: '0..1', one_more: '1..N', zero_more: '0..N' };
-    const CARD_PHRASE = { one: 'exatamente um', zero_one: 'no máximo um', one_more: 'um ou muitos', zero_more: 'zero ou muitos' };
-
-    /* glifo construído por DOM nativo (sem innerHTML, à prova de namespace).
-       Origem local (0,0) = centro da borda da entidade; +x aponta para fora
-       dela, ao longo da linha — como no mermaid: pé de galinha encostado na
-       entidade, traço/círculo sobre a linha. */
-    function crowGlyph(type) {
-        const g = svgEl('g');
-        const P = d => g.append(svgEl('path', { class: 'mp', d }));
-        const C = cx => g.append(svgEl('circle', { class: 'mc', cx, cy: 0, r: 3.4 }));
-        if (type === 'one') { P('M9.5 -5.2V5.2'); P('M15.5 -5.2V5.2'); }
-        else if (type === 'zero_one') { P('M9.5 -5.2V5.2'); C(16.8); }
-        else if (type === 'one_more') { P('M10 0L0 -6'); P('M10 0L0 0'); P('M10 0L0 6'); P('M15.5 -5.2V5.2'); }
-        else { P('M10 0L0 -6'); P('M10 0L0 0'); P('M10 0L0 6'); C(16.8); }
-        return g;
-    }
-    function crowMarker(type) {
-        const w = svgEl('g', { class: 'e-mk' });
-        w.append(crowGlyph(type));
-        return w;
-    }
-    function cardBadge(txt, tip) {
-        const w = Math.round(tw(txt, F.card)) + 10;
-        const g = svgEl('g', { class: 'e-card' });
-        const ti = document.createElementNS(NS, 'title');
-        ti.textContent = tip || txt; g.append(ti);
-        g.append(svgEl('rect', { x: -w / 2, y: -7, width: w, height: 14, rx: 7 }));
-        const t = svgEl('text', { 'text-anchor': 'middle', y: 3 }); t.textContent = txt;
-        g.append(t);
-        return g;
-    }
-    function anchor(a, b) {
-        const dx = (b.x + b.w / 2) - (a.x + a.w / 2), dy = (b.y + b.h / 2) - (a.y + a.h / 2);
-        if (Math.abs(dx) >= Math.abs(dy))
-            return dx > 0 ? { x: a.x + a.w, y: a.y + a.h / 2, dx: 1, dy: 0 } : { x: a.x, y: a.y + a.h / 2, dx: -1, dy: 0 };
-        return dy > 0 ? { x: a.x + a.w / 2, y: a.y + a.h, dx: 0, dy: 1 } : { x: a.x + a.w / 2, y: a.y, dx: 0, dy: -1 };
-    }
-
-    function simpleMarker(kind) {
-        const g = svgEl('g', { class: 'e-mk' });
-        if (!kind || kind === 'none') return g;
-        if (kind === 'arrow') g.append(svgEl('path', { d: 'M0 0 L-11 -5 L-9 0 L-11 5 Z', fill: 'var(--edge)' }));
-        else if (kind === 'tri') g.append(svgEl('path', { d: 'M0 0 L-12 -6 L-12 6 Z', fill: 'var(--edge)' }));
-        else if (kind === 'diamond') g.append(svgEl('path', { d: 'M0 0 L-8 -5 L-16 0 L-8 5 Z', fill: 'var(--edge)' }));
-        else if (kind === 'odiamond') g.append(svgEl('path', { d: 'M0 0 L-8 -5 L-16 0 L-8 5 Z', fill: 'var(--canvas)', stroke: 'var(--edge)', 'stroke-width': 1.4 }));
-        return g;
-    }
-
-    function buildEdges(animate) {
-        gEdges.textContent = ''; gTop.textContent = ''; edgeNodes = [];
-        if (model.type === 'seq') return buildSeqEdges(animate);
-        for (const rel of model.relations) {
-            const a = byId[rel.a], b = byId[rel.b]; if (!a || !b) continue;
-            const self = rel.a === rel.b;
-            /* linha: camada de baixo */
-            const g = svgEl('g', { class: 'edge' + (rel.dash ? ' dash' : '') });
-            const line = svgEl('path', { class: 'e-line' + (rel.mm ? ' mm-line' : '') });
-            g.append(line); gEdges.append(g);
-            const ma = rel.simple ? simpleMarker(rel.aMk) : crowMarker(rel.ac);
-            const mb = rel.simple ? simpleMarker(rel.bMk) : crowMarker(rel.bc);
-            const ba = rel.simple ? svgEl('g') : cardBadge(CARD_TEXT[rel.ac], `cada ${rel.b} se liga a ${CARD_PHRASE[rel.ac]} ${rel.a}`);
-            const bb = rel.simple ? svgEl('g') : cardBadge(CARD_TEXT[rel.bc], `cada ${rel.a} tem ${CARD_PHRASE[rel.bc]} ${rel.b}`);
-            const lg = svgEl('g', { class: 'e-label' });
-            const lw = tw(rel.label || ' ', F.label) + 16;
-            const lr = svgEl('rect', { width: lw, height: 18, rx: 9 });
-            const lt = svgEl('text', { 'text-anchor': 'middle' }); lt.textContent = rel.label;
-            lg.append(lr, lt);
-            gTop.append(ma, mb, ba, bb, lg);
-            edgeNodes.push({ rel, self, g, line, ma, mb, ba, bb, lg, lr, lt, lw });
-        }
-        updateEdgeGeometry();
-        if (animate && edgeNodes.length) {
+    /* ══════════ arestas: geometria pura (edges-geom) + render React ══════════ */
+    const edgeLayer = mountEdgeLines(gEdges);
+    const edgeOverlay = mountEdgeOverlays(gTop);
+    let edgeGeoms = [];
+    function renderEdges(animate) {
+        const ms = clamp(1 / (vw() / cam.w), 1, 1.7); /* compensação de zoom */
+        edgeGeoms = computeEdges({
+            type: model.type,
+            entities: model.entities.filter(e => !e.hidden && e.x != null),
+            relations: model.relations,
+            seqTop: SEQ_TOP, seqStep: SEQ_STEP, seqBottom: model.seqBottom,
+            ms,
+        });
+        edgeLayer.render({ geoms: edgeGeoms });
+        edgeOverlay.render({ geoms: edgeGeoms, ms });
+        if (animate && edgeGeoms.length) {
             scene.classList.add('drawing');
-            for (const E of edgeNodes) {
-                const L = E.line.getTotalLength();
-                E.line.style.strokeDasharray = L; E.line.style.strokeDashoffset = L;
-                E.line.getBoundingClientRect();
-                E.line.style.transition = 'stroke-dashoffset .9s cubic-bezier(.35,0,.25,1)';
-                requestAnimationFrame(() => E.line.style.strokeDashoffset = '0');
+            const paths = edgeGeoms
+                .map(g => gEdges.querySelector('[data-edge="' + CSS.escape(g.key) + '"] .e-line'))
+                .filter(Boolean);
+            for (const el of paths) {
+                const L = el.getTotalLength();
+                el.style.strokeDasharray = L; el.style.strokeDashoffset = L;
+                el.getBoundingClientRect();
+                el.style.transition = 'stroke-dashoffset .9s cubic-bezier(.35,0,.25,1)';
+                requestAnimationFrame(() => { el.style.strokeDashoffset = '0'; });
             }
             setTimeout(() => {
                 scene.classList.remove('drawing');
-                for (const E of edgeNodes) {
-                    E.line.style.transition = ''; E.line.style.strokeDasharray = ''; E.line.style.strokeDashoffset = '';
+                for (const el of paths) {
+                    el.style.transition = ''; el.style.strokeDasharray = ''; el.style.strokeDashoffset = '';
                 }
             }, 1150);
         }
     }
-
-    function buildSeqEdges(animate) {
-        for (const e of model.entities) {
-            const g = svgEl('g', { class: 'edge' });
-            const line = svgEl('path', { class: 'e-life' });
-            g.append(line); gEdges.append(g);
-            edgeNodes.push({ seq: true, life: true, entName: e.name, g, line });
-        }
-        for (const rel of model.relations) {
-            const g = svgEl('g', { class: 'edge' + (rel.dash ? ' dash' : '') });
-            const line = svgEl('path', { class: 'e-line' });
-            const ah = svgEl('path', { class: 'e-arrow' });
-            g.append(line, ah); gEdges.append(g);
-            const lg = svgEl('g', { class: 'e-label' });
-            const lw = tw(rel.label || ' ', F.label) + 16;
-            const lr = svgEl('rect', { width: lw, height: 18, rx: 9 });
-            const lt = svgEl('text', { 'text-anchor': 'middle' }); lt.textContent = rel.label;
-            lg.append(lr, lt); gTop.append(lg);
-            edgeNodes.push({ seq: true, rel, g, line, ah, lg, lr, lt, lw });
-        }
-        updateEdgeGeometry();
-    }
-
-    function updateSeqEdge(E) {
-        if (E.life) {
-            const e = byId[E.entName]; if (!e) return;
-            E.line.setAttribute('d', `M${e.x + e.w / 2} ${e.h + 6} L${e.x + e.w / 2} ${model.seqBottom || 600}`);
-            return;
-        }
-        const a = byId[E.rel.a], b = byId[E.rel.b]; if (!a || !b) return;
-        const y = SEQ_TOP + E.rel.idx * SEQ_STEP;
-        if (a === b) {
-            const x = a.x + a.w / 2;
-            E.line.setAttribute('d', `M${x} ${y} h60 a12 12 0 0 1 12 12 v6 a12 12 0 0 1 -12 12 h-60`);
-            E.ah.setAttribute('d', 'M0 0 L-11 -5 L-9 0 L-11 5 Z');
-            E.ah.setAttribute('transform', `translate(${x + 2} ${y + 30}) rotate(180)`);
-            E.lg.setAttribute('transform', `translate(${x + 45} ${y - 6})`);
-        } else {
-            const ax = a.x + a.w / 2, bx = b.x + b.w / 2, dir = bx >= ax ? 1 : -1;
-            E.line.setAttribute('d', `M${ax + dir * 2} ${y} L${bx - dir * 10} ${y}`);
-            E.ah.setAttribute('d', 'M0 0 L-11 -5 L-9 0 L-11 5 Z');
-            E.ah.setAttribute('transform', `translate(${bx - dir * 2} ${y}) rotate(${dir > 0 ? 0 : 180})`);
-            E.lg.setAttribute('transform', `translate(${(ax + bx) / 2} ${y - 14})`);
-        }
-        E.lr.setAttribute('x', -E.lw / 2); E.lr.setAttribute('y', -9); E.lt.setAttribute('y', 3.5);
-    }
-
-    function updateEdgeGeometry() {
-        /* compensação de zoom: símbolos e selos não encolhem demais ao reduzir */
-        const ms = clamp(1 / (vw() / cam.w), 1, 1.7);
-        const bo = 38 * ms, po = 14 * ms;
-        /* várias ligações na mesma face da entidade: espalha as âncoras ao longo
-           da borda para pés de galinha e selos de cardinalidade não se empilhar */
-        const FACE_GAP = 42 * ms; /* selo tem ~34px: gap precisa ser maior que ele */
-        const groups = new Map(), items = [];
-        for (const E of edgeNodes) {
-            if (E.seq) { updateSeqEdge(E); continue; }
-            const a = byId[E.rel.a], b = byId[E.rel.b]; if (!a || !b) continue;
-            let A, B;
-            if (E.self) {
-                /* laço: sai e volta pela mesma face da entidade */
-                A = { x: a.x + a.w, y: a.y + a.h * 0.32, dx: 1, dy: 0 };
-                B = { x: a.x + a.w, y: a.y + a.h * 0.68, dx: 1, dy: 0 };
-            } else if (E.rel.mm) {
-                /* galho do mindmap: bezier horizontal, contorna sem roteamento */
-                const A0 = anchor(a, b), B0 = anchor(b, a);
-                E.mmCurve = [A0, B0];
-                continue;
-            } else {
-                A = anchor(a, b); B = anchor(b, a);
-            }
-            const it = { E, a, b, A, B, aOff: 0, bOff: 0 };
-            items.push(it);
-            if (!E.self) for (const [ent, P, side] of [[a, it.A, 'a'], [b, it.B, 'b']]) {
-                const k = ent.name + '|' + P.dx + ',' + P.dy;
-                if (!groups.has(k)) groups.set(k, []);
-                groups.get(k).push({ it, side });
-            }
-        }
-        for (const list of groups.values()) {
-            list.forEach((g, i) => {
-                g.it[g.side + 'Off'] = (i - (list.length - 1) / 2) * FACE_GAP;
-            });
-        }
-        /* desloca a âncora ao longo da face (vertical: eixo y; horizontal: eixo x) */
-        const spread = (P, ent, off) => {
-            if (!off) return P;
-            const lim = (P.dx ? ent.h : ent.w) / 2 - 16;
-            const o = clamp(off, -lim, lim);
-            return P.dx ? { x: P.x, y: P.y + o, dx: P.dx, dy: P.dy } : { x: P.x + o, y: P.y, dx: P.dx, dy: P.dy };
-        };
-        /* ── roteamento ortogonal (estilo dbdiagram): sai reto da face,
-           dobra no canal do meio, entra reto na face oposta ── */
-        const R = 9;
-        /* H-V-H com dobra no canal `mid` (com cantos arredondados) */
-        const hvh = (x1, y1, mid, y2, x2) => {
-            if (Math.abs(y2 - y1) < 1) return `M${x1} ${y1}H${x2}`;
-            const sy = y2 > y1 ? 1 : -1;
-            const r = Math.max(1, Math.min(R, Math.abs(mid - x1), Math.abs(x2 - mid), Math.abs(y2 - y1) / 2));
-            return `M${x1} ${y1}H${mid - r}Q${mid} ${y1} ${mid} ${y1 + sy * r}V${y2 - sy * r}Q${mid} ${y2} ${mid + (x2 >= mid ? r : -r)} ${y2}H${x2}`;
-        };
-        /* V-H-V com dobra no canal `mid` */
-        const vhv = (x1, y1, mid, x2, y2) => {
-            if (Math.abs(x2 - x1) < 1) return `M${x1} ${y1}V${y2}`;
-            const sx = x2 > x1 ? 1 : -1;
-            const r = Math.max(1, Math.min(R, Math.abs(mid - y1), Math.abs(y2 - mid), Math.abs(x2 - x1) / 2));
-            return `M${x1} ${y1}V${mid - r}Q${x1} ${mid} ${x1 + sx * r} ${mid}H${x2 - sx * r}Q${x2} ${mid} ${x2} ${mid + (y2 >= mid ? r : -r)}V${y2}`;
-        };
-        /* pass 1: espalha âncoras e calcula canal do meio de cada rota */
-        /* rota completa livre: testa os 3 segmentos (ida, canal, volta) */
-        /* obstáculo expandido (14px) para o canal; 4px para os trechos de ponta */
-        const hHitM = (y, x1, x2, sa, sb, m) => model.entities.some(e => {
-            if (e === sa || e === sb) return false;
-            return y > e.y - m && y < e.y + e.h + m && e.x < Math.max(x1, x2) - 2 && e.x + e.w > Math.min(x1, x2) + 2;
-        });
-        const vHitM = (x, y1, y2, sa, sb, m) => model.entities.some(e => {
-            if (e === sa || e === sb) return false;
-            return x > e.x - m && x < e.x + e.w + m && e.y < Math.max(y1, y2) - 2 && e.y + e.h > Math.min(y1, y2) + 2;
-        });
-        /* escolhe o canal com a rota mais livre; retorna também quantos
-           trechos continuam bloqueados (para acionar o contorno) */
-        const routeHVH = (A, B, sa, sb) => {
-            const mid = (A.x + B.x) / 2, lo = Math.min(A.y, B.y), hi = Math.max(A.y, B.y);
-            let best = mid, bestScore = Infinity;
-            for (let d = 0; d <= 6000; d += 8) {
-                for (const c of d ? [mid - d, mid + d] : [mid]) {
-                    let score = 0;
-                    if (vHitM(c, lo, hi, sa, sb, 14)) score++;
-                    if (hHitM(A.y, A.x, c, sa, sb, 4)) score++;
-                    if (hHitM(B.y, c, B.x, sa, sb, 4)) score++;
-                    if (!score) return { c, score: 0 };
-                    if (score < bestScore) { bestScore = score; best = c; }
-                }
-            }
-            return { c: best, score: bestScore };
-        };
-        const routeVHV = (A, B, sa, sb) => {
-            const mid = (A.y + B.y) / 2, lo = Math.min(A.x, B.x), hi = Math.max(A.x, B.x);
-            let best = mid, bestScore = Infinity;
-            for (let d = 0; d <= 6000; d += 8) {
-                for (const c of d ? [mid - d, mid + d] : [mid]) {
-                    let score = 0;
-                    if (hHitM(c, lo, hi, sa, sb, 14)) score++;
-                    if (vHitM(A.x, A.y, c, sa, sb, 4)) score++;
-                    if (vHitM(B.x, c, B.y, sa, sb, 4)) score++;
-                    if (!score) return { c, score: 0 };
-                    if (score < bestScore) { bestScore = score; best = c; }
-                }
-            }
-            return { c: best, score: bestScore };
-        };
-        /* tabelas dentro do corredor entre as duas âncoras (expandido) */
-        const corridorBlocks = (A, B, sa, sb) => {
-            const lo = Math.min(A.x, B.x) - 14, hi = Math.max(A.x, B.x) + 14;
-            const lo2 = Math.min(A.y, B.y) - 14, hi2 = Math.max(A.y, B.y) + 14;
-            const out = [];
-            for (const e of model.entities) {
-                if (e === sa || e === sb) continue;
-                if (e.x + e.w < lo || e.x > hi || e.y + e.h < lo2 || e.y > hi2) continue;
-                out.push(e);
-            }
-            return out;
-        };
-        /* contorna o bloco de tabelas por cima ou por baixo (o mais próximo) */
-        const rowBlocks = (x1, x2, y, sa, sb) => {
-            const lo = Math.min(x1, x2), hi = Math.max(x1, x2), out = [];
-            for (const e of model.entities) {
-                if (e === sa || e === sb) continue;
-                if (e.y >= y || e.y + e.h <= y) continue;
-                if (e.x + e.w <= lo || e.x >= hi) continue;
-                out.push(e);
-            }
-            return out;
-        };
-        const colBlocks = (y1, y2, x, sa, sb) => {
-            const lo = Math.min(y1, y2), hi = Math.max(y1, y2), out = [];
-            for (const e of model.entities) {
-                if (e === sa || e === sb) continue;
-                if (e.x >= x || e.x + e.w <= x) continue;
-                if (e.y + e.h <= lo || e.y >= hi) continue;
-                out.push(e);
-            }
-            return out;
-        };
-        /* contorna o bloco de tabelas por cima ou por baixo (o mais próximo) */
-        const detourH = (x1, y, x2, blocks) => {
-            const sx = x2 > x1 ? 1 : -1;
-            const top = Math.min(...blocks.map(t => t.y)), bot = Math.max(...blocks.map(t => t.y + t.h));
-            const yd = Math.abs(y - (top - 46)) <= Math.abs((bot + 46) - y) ? top - 46 : bot + 46;
-            const off1 = x1 + sx * 26, off2 = x2 - sx * 26, sy = yd > y ? 1 : -1, r = Math.min(R, 24);
-            return { d: `M${x1} ${y}H${off1 - sx * r}Q${off1} ${y} ${off1} ${y + sy * r}V${yd - sy * r}Q${off1} ${yd} ${off1 + sx * r} ${yd}H${off2 - sx * r}Q${off2} ${yd} ${off2} ${yd - sy * r}V${y + sy * r}Q${off2} ${y} ${off2 + sx * r} ${y}H${x2}`, yd };
-        };
-        const detourV = (x, y1, y2, blocks) => {
-            const sy = y2 > y1 ? 1 : -1;
-            const left = Math.min(...blocks.map(t => t.x)), right = Math.max(...blocks.map(t => t.x + t.w));
-            const xd = Math.abs(x - (left - 46)) <= Math.abs((right + 46) - x) ? left - 46 : right + 46;
-            const off1 = y1 + sy * 26, off2 = y2 - sy * 26, sx = xd > x ? 1 : -1, r = Math.min(R, 24);
-            return { d: `M${x} ${y1}V${off1 - sy * r}Q${x} ${off1} ${x + sx * r} ${off1}H${xd - sx * r}Q${xd} ${off1} ${xd} ${off1 + sy * r}V${off2 - sy * r}Q${xd} ${off2} ${xd - sx * r} ${off2}H${x + sx * r}Q${x} ${off2} ${x} ${off2 + sy * r}V${y2}`, xd };
-        };
-        for (const it of items) {
-            it.pA = spread(it.A, it.a, it.aOff);
-            it.pB = spread(it.B, it.b, it.bOff);
-            const { pA, pB } = it;
-            if (it.E.self || it.E.seq || it.E.rel.mm) continue;
-            if (pA.dx !== 0 && pB.dx !== 0)
-                it.chan = routeHVH(pA, pB, it.a, it.b);
-            else if (pA.dy !== 0 && pB.dy !== 0)
-                it.chan = routeVHV(pA, pB, it.a, it.b);
-            else it.chan = null;
-        }
-        /* canais coincidentes (linhas paralelas) ganham desvio de 12px */
-        const bins = new Map();
-        for (const it of items) {
-            if (it.chan == null) continue;
-            const k = Math.round(it.chan / 8);
-            if (!bins.has(k)) bins.set(k, []);
-            bins.get(k).push(it);
-        }
-        for (const g of bins.values()) g.forEach((it, i) => { it.chan += (i - (g.length - 1) / 2) * 12; });
-        /* pass 2: monta os caminhos, símbolos, selos e rótulos */
-        const placed = [], placedBadges = [];
-        const boxOf = (x, y, w) => ({ x: x - w / 2 - 4, y: y - 12, w: w + 8, h: 24 });
-        const hit = bx => placed.some(p => Math.abs(bx.x - p.x) < (bx.w + p.w) / 2 && Math.abs(bx.y - p.y) < (bx.h + p.h) / 2);
-        for (const it of items) {
-            const E = it.E;
-            const A = it.pA, B = it.pB;
-            let d, lx, ly;
-            if (E.self) {
-                const dist = Math.hypot(B.x - A.x, B.y - A.y);
-                const off = clamp(dist * 0.45, 40, 150);
-                const c1x = A.x + A.dx * off, c1y = A.y + A.dy * off, c2x = B.x + B.dx * off, c2y = B.y + B.dy * off;
-                d = `M${A.x} ${A.y}C${c1x} ${c1y} ${c2x} ${c2y} ${B.x} ${B.y}`;
-                lx = (A.x + 3 * c1x + 3 * c2x + B.x) / 8; ly = (A.y + 3 * c1y + 3 * c2y + B.y) / 8;
-            } else if (A.dx !== 0 && B.dx !== 0) {
-                /* faces verticais com sobreposição de altura → linha reta:
-                   desliza as âncoras para a faixa comum em vez de dobrar */
-                const oLo = Math.max(it.a.y, it.b.y) + 16, oHi = Math.min(it.a.y + it.a.h, it.b.y + it.b.h) - 16;
-                const sy = clamp((A.y + B.y) / 2, oLo, Math.max(oLo, oHi));
-                const canStraight = oHi > oLo && !hHitM(sy, A.x, B.x, it.a, it.b, 2);
-                if (Math.abs(A.y - B.y) < 1) {
-                    const blocks = rowBlocks(A.x, B.x, A.y, it.a, it.b);
-                    if (blocks.length) {
-                        const det = detourH(A.x, A.y, B.x, blocks);
-                        d = det.d; lx = (A.x + B.x) / 2; ly = det.yd;
-                    } else { d = `M${A.x} ${A.y}H${B.x}`; lx = (A.x + B.x) / 2; ly = A.y; }
-                } else if (canStraight) {
-                    A.y = sy; B.y = sy;
-                    d = `M${A.x} ${sy}H${B.x}`; lx = (A.x + B.x) / 2; ly = sy;
-                } else {
-                    const res = routeHVH(A, B, it.a, it.b);
-                    it.chan = res.c;
-                    if (res.score) {
-                        /* sem canal livre: contorna o corredor por cima/baixo */
-                        const blocks = corridorBlocks(A, B, it.a, it.b);
-                        if (blocks.length) {
-                            const sx = B.x > A.x ? 1 : -1, r = Math.min(R, 24);
-                            const top = Math.min(...blocks.map(t => t.y)), bot = Math.max(...blocks.map(t => t.y + t.h));
-                            const midY = (A.y + B.y) / 2;
-                            const yd = Math.abs(midY - (top - 46)) <= Math.abs((bot + 46) - midY) ? top - 46 : bot + 46;
-                            const off1 = A.x + sx * 26, off2 = B.x - sx * 26;
-                            const sy1 = yd > A.y ? 1 : -1, sy2 = yd > B.y ? -1 : 1;
-                            d = `M${A.x} ${A.y}H${off1 - sx * r}Q${off1} ${A.y} ${off1} ${A.y + sy1 * r}V${yd - sy1 * r}Q${off1} ${yd} ${off1 + sx * r} ${yd}H${off2 - sx * r}Q${off2} ${yd} ${off2} ${yd + sy2 * r}V${B.y - sy2 * r}Q${off2} ${B.y} ${off2 + sx * r} ${B.y}H${B.x}`;
-                            lx = (off1 + off2) / 2; ly = yd;
-                        } else { d = hvh(A.x, A.y, res.c, B.y, B.x); lx = res.c; ly = (A.y + B.y) / 2; }
-                    } else { d = hvh(A.x, A.y, res.c, B.y, B.x); lx = res.c; ly = (A.y + B.y) / 2; }
-                }
-            } else if (A.dy !== 0 && B.dy !== 0) {
-                /* faces horizontais com sobreposição de largura → linha reta */
-                const oLo = Math.max(it.a.x, it.b.x) + 16, oHi = Math.min(it.a.x + it.a.w, it.b.x + it.b.w) - 16;
-                const sx = clamp((A.x + B.x) / 2, oLo, Math.max(oLo, oHi));
-                const canStraight = oHi > oLo && !vHitM(sx, A.y, B.y, it.a, it.b, 2);
-                if (Math.abs(A.x - B.x) < 1) {
-                    A.x = B.x; /* âncora A acompanha o spread de B */
-                    const blocks = colBlocks(A.y, B.y, A.x, it.a, it.b);
-                    if (blocks.length) {
-                        const det = detourV(A.x, A.y, B.y, blocks);
-                        d = det.d; lx = det.xd; ly = (A.y + B.y) / 2;
-                    } else { d = `M${A.x} ${A.y}V${B.y}`; lx = A.x; ly = (A.y + B.y) / 2; }
-                } else if (canStraight) {
-                    A.x = sx; B.x = sx;
-                    d = `M${sx} ${A.y}V${B.y}`; lx = sx; ly = (A.y + B.y) / 2;
-                } else {
-                    const res = routeVHV(A, B, it.a, it.b);
-                    it.chan = res.c;
-                    if (res.score) {
-                        /* sem canal livre: contorna o corredor pela esquerda/direita */
-                        const blocks = corridorBlocks(A, B, it.a, it.b);
-                        if (blocks.length) {
-                            const sy = B.y > A.y ? 1 : -1, r = Math.min(R, 24);
-                            const left = Math.min(...blocks.map(t => t.x)), right = Math.max(...blocks.map(t => t.x + t.w));
-                            const midX = (A.x + B.x) / 2;
-                            const xd = Math.abs(midX - (left - 46)) <= Math.abs((right + 46) - midX) ? left - 46 : right + 46;
-                            const off1 = A.y + sy * 26, off2 = B.y - sy * 26;
-                            const sx1 = xd > A.x ? 1 : -1, sx2 = xd > B.x ? -1 : 1;
-                            d = `M${A.x} ${A.y}V${off1 - sy * r}Q${A.x} ${off1} ${A.x + sx1 * r} ${off1}H${xd - sx1 * r}Q${xd} ${off1} ${xd} ${off1 + sy * r}V${off2 - sy * r}Q${xd} ${off2} ${xd + sx2 * r} ${off2}H${B.x - sx2 * r}Q${B.x} ${off2} ${B.x} ${off2 + sy * r}V${B.y}`;
-                            lx = xd; ly = (off1 + off2) / 2;
-                        } else { d = vhv(A.x, A.y, res.c, B.x, B.y); lx = (A.x + B.x) / 2; ly = res.c; }
-                    } else { d = vhv(A.x, A.y, res.c, B.x, B.y); lx = (A.x + B.x) / 2; ly = res.c; }
-                }
-            } else if (A.dx !== 0) {
-                d = hvh(A.x, A.y, B.x, B.y, B.x);
-                lx = B.x; ly = (A.y + B.y) / 2;
-            } else {
-                d = vhv(A.x, A.y, B.y, B.x, B.y);
-                lx = (A.x + B.x) / 2; ly = B.y;
-            }
-            E.line.setAttribute('d', d);
-            const rotA = Math.atan2(A.dy, A.dx) * 180 / Math.PI, rotB = Math.atan2(B.dy, B.dx) * 180 / Math.PI;
-            E.ma.setAttribute('transform', `translate(${A.x} ${A.y}) rotate(${rotA}) scale(${ms})`);
-            E.mb.setAttribute('transform', `translate(${B.x} ${B.y}) rotate(${rotB}) scale(${ms})`);
-            /* rótulo primeiro (anti-colisão entre rótulos) */
-            const bx = boxOf(lx, ly, E.lw);
-            if (hit(bx)) {
-                for (const dd of [-26, 26, -52, 52, -78, 78]) {
-                    if (!hit(boxOf(lx, ly + dd, E.lw))) { ly = ly + dd; break; }
-                }
-            }
-            placed.push(boxOf(lx, ly, E.lw));
-            E.lg.setAttribute('transform', `translate(${lx} ${ly})`);
-            E.lr.setAttribute('x', -E.lw / 2); E.lr.setAttribute('y', -9);
-            E.lt.setAttribute('y', 3.5);
-            /* selos de cardinalidade: nunca sobre outro selo nem sobre rótulo */
-            if (!E.rel.simple) {
-                const bw = (tw(CARD_TEXT[E.rel.ac], F.card) + 10) * ms;
-                const coll = (x, y, w) => placedBadges.some(p => Math.abs(x - p.x) < (w + p.w) / 2 + 4 && Math.abs(y - p.y) < 20)
-                    || placed.some(p => Math.abs(x - p.x) < (w / ms + p.w) / 2 + 4 && Math.abs(y - p.y / ms) < 20);
-                const put = (anchor, txt) => {
-                    const w = (tw(txt, F.card) + 10) * ms;
-                    const x0 = anchor.x + anchor.dx * bo + anchor.dy * po, y0 = anchor.y + anchor.dy * bo - anchor.dx * po;
-                    let px = x0, py = y0;
-                    if (coll(px, py, w)) {
-                        for (const extra of [16, 32, 48, 64, 80]) {
-                            const nx = anchor.x + anchor.dx * (bo + extra) + anchor.dy * po, ny = anchor.y + anchor.dy * (bo + extra) - anchor.dx * po;
-                            if (!coll(nx, ny, w)) { px = nx; py = ny; break; }
-                        }
-                        if (coll(px, py, w)) {
-                            for (const per of [26, -26, 52, -52, 78, -78]) {
-                                const nx = x0 + anchor.dy * per, ny = y0 - anchor.dx * per;
-                                if (!coll(nx, ny, w)) { px = nx; py = ny; break; }
-                            }
-                        }
-                    }
-                    placedBadges.push({ x: px, y: py, w });
-                    return `translate(${px} ${py}) scale(${ms})`;
-                };
-                E.ba.setAttribute('transform', put(A, CARD_TEXT[E.rel.ac]));
-                E.bb.setAttribute('transform', put(B, CARD_TEXT[E.rel.bc]));
-            } else {
-                E.ba.setAttribute('transform', `translate(${A.x + A.dx * bo + A.dy * po} ${A.y + A.dy * bo - A.dx * po}) scale(${ms})`);
-                E.bb.setAttribute('transform', `translate(${B.x + B.dx * bo + B.dy * po} ${B.y + B.dy * bo - B.dx * po}) scale(${ms})`);
-            }
-        }
-        /* pass 3: galhos curvos do mindmap (fora do fluxo de roteamento) */
-        for (const E of edgeNodes) {
-            if (!E.rel || !E.rel.mm || !E.mmCurve) continue;
-            const [A0, B0] = E.mmCurve;
-            const k = clamp(Math.abs(B0.x - A0.x) * 0.45, 30, 120);
-            E.line.setAttribute('d', `M${A0.x} ${A0.y} C${A0.x + A0.dx * k} ${A0.y} ${B0.x - A0.dx * k} ${B0.y} ${B0.x} ${B0.y}`);
-            E.lg.setAttribute('transform', `translate(${(A0.x + B0.x) / 2} ${(A0.y + B0.y) / 2})`);
-            E.lr.setAttribute('x', -E.lw / 2); E.lr.setAttribute('y', -9); E.lt.setAttribute('y', 3.5);
-            E.ma.setAttribute('transform', `translate(${A0.x} ${A0.y}) rotate(${Math.atan2(A0.dy, A0.dx) * 180 / Math.PI}) scale(${ms})`);
-            E.mb.setAttribute('transform', `translate(${B0.x} ${B0.y}) rotate(${Math.atan2(B0.dy, B0.dx) * 180 / Math.PI}) scale(${ms})`);
-            E.ba.setAttribute('transform', `translate(${A0.x + A0.dx * bo} ${A0.y + A0.dy * bo}) scale(${ms})`);
-            E.bb.setAttribute('transform', `translate(${B0.x + B0.dx * bo} ${B0.y + B0.dy * bo}) scale(${ms})`);
-        }
-    }
+    const updateEdgeGeometry = () => renderEdges(false);
 
     function buildAdj() {
         adj = {};
@@ -1059,19 +640,20 @@ export function mountEngine() {
             g.classList.toggle('sel', name === selectedId);
             g.classList.toggle('dimt', !!act && name !== act && !(adj[name] && adj[name].has(act)));
         }
-        for (const E of edgeNodes) {
-            const hit = !!act && (E.rel.a === act || E.rel.b === act);
+        for (const E of edgeGeoms) {
+            if (E.kind === 'life') continue;
+            const hit = !!act && (E.aName === act || E.bName === act);
             const dim = !!act && !hit;
-            E.g.classList.toggle('on', hit);
-            E.g.classList.toggle('dim', dim);
-            for (const el of [E.ma, E.mb, E.ba, E.bb, E.lg]) {
-                el.classList.toggle('on', hit);
-                el.classList.toggle('dim', dim);
-            }
+            const sel = '[data-edge="' + CSS.escape(E.key) + '"]';
+            gEdges.querySelectorAll(sel).forEach(el => {
+                el.classList.toggle('on', hit); el.classList.toggle('dim', dim);
+            });
+            gTop.querySelectorAll(sel).forEach(el => {
+                el.classList.toggle('on', hit); el.classList.toggle('dim', dim);
+            });
         }
         updateMinimap();
     }
-
 
     /* ══════════ 08-camera.js ══════════ */
     /* ══════════ câmera / pan / zoom ══════════ */
@@ -1407,7 +989,7 @@ export function mountEngine() {
         for (const k of Object.keys(positions)) if (!byId[k]) delete positions[k];
         for (const e of model.entities) positions[e.name] = { x: e.x, y: e.y };
         store.set('pos', JSON.stringify(positions)); store.set('code', code);
-        buildAdj(); buildEdges(animate); updateFocus(); updateStats(); updateMinimap();
+        buildAdj(); renderEdges(animate); updateFocus(); updateStats(); updateMinimap();
         return true;
     }
     function savePositions() {
@@ -1446,7 +1028,7 @@ export function mountEngine() {
         }
         const vis = model.entities.filter(e => !e.hidden);
         const fields = vis.reduce((s, e) => s + e.attrs.length, 0);
-        statsEl.textContent = `${vis.length} entidades · ${edgeNodes.length} relações · ${fields} campos`;
+        statsEl.textContent = `${vis.length} entidades · ${edgeGeoms.length} relações · ${fields} campos`;
     }
     function setParseState(errors, res) {
         if (errors && errors.length) {
@@ -2105,26 +1687,6 @@ export function mountEngine() {
 
 
     /* ══════════ 21-docs.js ══════════ */
-    /* ══════════ documentação: prévias e gabaritos ══════════ */
-    function miniRel(lc, conn, rc) {
-        const s = svgEl('svg', { class: 'mini-rel' + (conn === '..' ? ' dashed' : ''), viewBox: '0 0 176 34', width: 176, height: 34 });
-        s.append(svgEl('rect', { x: 21, y: 8, width: 9, height: 20, rx: 2, class: 'mb' }));
-        s.append(svgEl('rect', { x: 146, y: 8, width: 9, height: 20, rx: 2, class: 'mb' }));
-        s.append(svgEl('path', { d: 'M30 18H146', class: 'ml' }));
-        /* glifo esquerdo: ancorado na borda direita da caixa, aponta para a linha */
-        const gl = svgEl('g', { transform: 'translate(30 18)' }); gl.append(crowGlyph(lc));
-        /* glifo direito: ancorado na borda esquerda da caixa, aponta de volta */
-        const gr = svgEl('g', { transform: 'translate(146 18) rotate(180)' }); gr.append(crowGlyph(rc));
-        s.append(gl, gr);
-        const tl = svgEl('text', { x: 58, y: 9, 'text-anchor': 'middle' }); tl.textContent = CARD_TEXT[lc];
-        const tr = svgEl('text', { x: 118, y: 9, 'text-anchor': 'middle' }); tr.textContent = CARD_TEXT[rc];
-        s.append(tl, tr);
-        return s;
-    }
-    document.querySelectorAll('.mini[data-rel]').forEach(el => {
-        const [lc, conn, rc] = el.dataset.rel.split(' ');
-        el.append(miniRel(lc, conn, rc));
-    });
     /* ── tabs da documentação ── */
     const docsTabs = $('docsTabs');
     const docsSections = [...document.querySelectorAll('#docs .docs-body section[data-tab]')];

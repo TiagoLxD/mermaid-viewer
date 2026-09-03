@@ -11,15 +11,20 @@ export const F = {
     comment: 'italic 400 11px "JetBrains Mono", ui-monospace, monospace',
 } as const;
 
-let mctx: CanvasRenderingContext2D | null = null;
-function ctx(): CanvasRenderingContext2D {
-    if (!mctx) mctx = document.createElement('canvas').getContext('2d')!;
+let mctx: CanvasRenderingContext2D | null | undefined;
+function ctx(): CanvasRenderingContext2D | null {
+    if (mctx === undefined) {
+        try { mctx = document.createElement('canvas').getContext('2d'); }
+        catch { mctx = null; }
+    }
     return mctx;
 }
 
-/** Largura do texto na fonte dada (via canvas offscreen). */
+/** Largura do texto na fonte dada (via canvas offscreen).
+    Sem canvas disponível (ex.: jsdom), estima por caracteres monoespaçados. */
 export function tw(t: string, font: string): number {
     const c = ctx();
+    if (!c) return t.length * 7.2;
     c.font = font;
     return c.measureText(t).width;
 }
