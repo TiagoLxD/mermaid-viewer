@@ -2,25 +2,29 @@
 
 ## Decisões
 
-- 2026-09-03: Motor modular — parsers/highlight/formatter/examples puros em
-  `src/engine/`, cobertos por Vitest (24 testes). `engine.js` permanece
-  orquestrador de interação (drag/câmera/edges/minimap), importando os módulos.
+- 2026-09-03: Motor modular — parsers/highlight/formatter/examples/measure
+  puros em `src/engine/`, cobertos por Vitest. `engine.js` permanece
+  orquestrador de interação, importando os módulos.
 - 2026-09-03: Nós do diagrama renderizados via React (`components/diagram/`),
   root montado em `#gTables` com `flushSync` (commit síncrono p/ refs do engine).
   Ícones são componentes React; nada de `innerHTML`/`createElementNS` para nós.
-- 2026-09-03: Ícones alternáveis (tema/prévia) controlados por data-attr + CSS.
+- 2026-09-03: Arestas — geometria 100% pura em `edges-geom.ts` (âncoras,
+  espalhamento, roteamento H-V-H/V-H-V, contornos, laços, mindmap, sequência);
+  render React em `gEdges`/`gTop` (EdgeLines/EdgeOverlays/CrowGlyph/MiniRel).
+- 2026-09-03: Drag — `drag-geom.ts` puro (snapMove/pushOut/resolveOverlaps).
+- Verificação runtime headless (Chromium): os 7 tipos de diagrama renderizam
+  sem erros de console (seed via localStorage `meridian:code`).
 
 ## Blockers / riscos
 
-- Arestas (`07-edges.js`) ainda construídas via `createElementNS` no engine —
-  próximo passo: extrair cálculo de path (puro) + componente `Edge` React.
-- Verificação runtime headless cobriu o tipo ER; demais tipos validados só por
-  teste unitário do parser — checar flow/seq/class/pie/mindmap/c4 no navegador.
+- `engine.js` ainda é JS (orquestração de câmera/pan/UI/editor-events).
+  Migração integral para TS exigiria ~900 correções (null-safety + tipos DOM);
+  estratégia adotada: continuar extraindo blocos puros por pela lógica testável.
 
 ## Todos / ideias
 
-- Migrar `engine.js` (JS → TS) por blocos.
-- Testes de integração da cena (jsdom + mountEngine) p/ tipos não-ER.
+- Extrair para módulos puros: edgeClearance (layout), store, undo, toasts.
+- Migração JS→TS do restante do engine por blocos (câmera → drag → UI).
 - `store`, toasts e undo como módulos puros testáveis.
 
 ## Preferências
