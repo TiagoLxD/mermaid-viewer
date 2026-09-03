@@ -3,28 +3,29 @@
 ## Decisões
 
 - 2026-09-03: Motor 100% TypeScript (`src/engine/engine.ts`), strict mode limpo.
-  Estratégia gradual: módulos puros tipados (parser, edges-geom, layout,
-  drag-geom, history, store…) e o orquestrador com `any` nos refs DOM/estado
-  (evolução incremental: apertar os tipos por blocos, começando por model/byId).
-- 2026-09-03: Nós e arestas renderizados via React (`components/diagram/`):
-  roots em `#gTables`/`#gEdges`/`#gTop` com `flushSync` (commit síncrono p/ refs).
-  Ícones são componentes React; nada de `innerHTML`/`createElementNS` p/ conteúdo.
-- 2026-09-03: Verificação runtime: Chromium headless (CDP) — os 7 tipos de
-  diagrama renderizam sem erros de console; drag testado com eventos pointer
-  sintéticos via CDP (tabela move, pushOut executa).
-  Nota: em headless, `document.fonts.ready` só resolve com fetch externo
-  abortado (Fetch.failRequest) — lembrar nos testes futuros.
+- 2026-09-03: **Estratégia de render em duas camadas** (após regressão de perf):
+  - React render **só na mudança estrutural** (applySource: código novo, tipo,
+    recolher mindmap) — nós E arestas;
+  - por frame (drag/pan/zoom): roteamento recalculado (edges-geom, puro) e
+    aplicado via `setAttribute` direto em refs cacheadas (`edgeRefs`,
+    `mmRects`) — zero reconciliação/flushSync por pointermove;
+  - rect da cena cacheado por gesto (`cacheSceneRect`), invalidado no resize;
+  - guard `engineMounted` evita listeners duplicados do double-effect StrictMode.
+  Medição CDP: pointermove handler média 1,3ms / máx 2,4ms (antes: violações de
+  35–62ms por forced reflow + rAF > 62ms).
+- 2026-09-03: Verificação runtime headless (CDP): 7 tipos renderizam, drag ok.
+  Nota: `document.fonts.ready` em headless só resolve com fetch externo abortado.
 
 ## Blockers / riscos
 
-- `engine.ts` usa `any` em refs DOM e estado interno (model/byId/cam/etc.) —
-  apertar gradualmente (sugestão: interface EngineModel + typed refs).
+- `engine.ts` usa `any` em refs DOM e estado interno — apertar gradualmente.
+- Guard `engineMounted` assume full-reload do Vite p/ HMR do engine (padrão).
 
 ## Todos / ideias
 
-- Extrair snippets (slash commands + tabstops) como módulo puro testável.
-- Teste de integração (jsdom/CDP) do pipeline applySource → Scene na CI.
-- Tipar EngineModel/byId no engine.ts (remover `any` gradualmente).
+- Extrair snippets como módulo puro testável.
+- Tipar EngineModel/byId (remover `any` gradualmente).
+- Teste CDP de drag/perf automatizado na CI.
 
 ## Preferências
 
