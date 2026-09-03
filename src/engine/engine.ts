@@ -16,7 +16,10 @@ import { highlightMermaid } from './highlight';
 import { buildFormatted } from './formatter';
 import { EXAMPLES } from './examples';
 
+let engineMounted = false; /* StrictMode roda o effect 2× em dev — sem guard, listeners duplicam */
 export function mountEngine() {
+    if (engineMounted) return;
+    engineMounted = true;
     /* ══════════ 00-core.js ══════════ */
     /* ══════════ refs & helpers ══════════ */
     const $ = (id: string): any => document.getElementById(id);
@@ -139,25 +142,82 @@ export function mountEngine() {
     });
 
     /* ══════════ 07-edges.js ══════════ */
-    /* ══════════ arestas: geometria pura (edges-geom) + render React ══════════ */
+    /* ══════════ arestas: React só na mudança ESTRUTURAL; por frame,
+       geometria aplicada por atributos diretos em refs cacheadas
+       (sem reconciliação/flushSync nos pointermove/zoom) ══════════ */
     const edgeLayer = mountEdgeLines(gEdges);
     const edgeOverlay = mountEdgeOverlays(gTop);
     let edgeGeoms: any[] = [];
-    function renderEdges(animate: any) {
+    let edgeRefs: any = null;
+    let lastMs = 1;
+
+    function refreshEdgeRefs() {
+        /* cacheia refs por aresta: d/transforms viram updates diretos */
+        edgeRefs = new Map();
+        const esc = (s: any) => CSS.escape(String(s));
+        for (const g of edgeGeoms) {
+            const key = g.key;
+            const lineG = gEdges.querySelector('[data-edge="' + esc(key) + '"]');
+            if (!lineG) continue;
+            const mk = (sel: string) => gTop.querySelector('[data-edge="' + esc(sel) + '"]');
+            edgeRefs.set(key, {
+                line: lineG.querySelector('.e-line'),
+                arrow: lineG.querySelector('.e-arrow'),
+                mkA: mk(key + ':a'), mkB: mk(key + ':b'),
+                badgeA: mk(key + ':ba'), badgeB: mk(key + ':bb'),
+                label: mk(key),
+            });
+        }
+    }
+
+    function computeGeoms(): any[] {
         const ms = clamp(1 / (vw() / cam.w), 1, 1.7); /* compensação de zoom */
-        edgeGeoms = computeEdges({
+        lastMs = ms;
+        return computeEdges({
             type: model.type,
             entities: model.entities.filter((e: any) => !e.hidden && e.x != null),
             relations: model.relations,
             seqTop: SEQ_TOP, seqStep: SEQ_STEP, seqBottom: model.seqBottom,
             ms,
         });
+    }
+
+    /* aplica geometria direto nos elementos cacheados (sem React) */
+    function applyEdgeGeometry() {
+        if (!edgeRefs) refreshEdgeRefs();
+        for (const g of edgeGeoms) {
+            const R = edgeRefs.get(g.key);
+            if (!R) continue;
+            if (g.kind === 'life') { R.line?.setAttribute('d', g.d); continue; }
+            R.line?.setAttribute('d', g.d);
+            if (R.arrow && g.arrow) {
+                R.arrow.setAttribute('d', g.arrow.d);
+                R.arrow.setAttribute('transform', `translate(${g.arrow.x} ${g.arrow.y}) rotate(${g.arrow.rot})`);
+            }
+            R.mkA?.setAttribute('transform', `translate(${g.ax} ${g.ay}) rotate(${g.aRot}) scale(${lastMs})`);
+            R.mkB?.setAttribute('transform', `translate(${g.bx} ${g.by}) rotate(${g.bRot}) scale(${lastMs})`);
+            R.badgeA?.setAttribute('transform', g.badgeA ? `translate(${g.badgeA.x} ${g.badgeA.y}) scale(${lastMs})` : 'scale(0)');
+            R.badgeB?.setAttribute('transform', g.badgeB ? `translate(${g.badgeB.x} ${g.badgeB.y}) scale(${lastMs})` : 'scale(0)');
+            if (R.label) {
+                R.label.setAttribute('transform', `translate(${g.lx} ${g.ly})`);
+                const lr = R.label.querySelector('rect'), lt = R.label.querySelector('text');
+                lr?.setAttribute('x', -g.lw / 2);
+                lt?.setAttribute('y', 3.5);
+            }
+        }
+    }
+
+    /* render estrutural: arestas novas/mudança de tipo → React + refs */
+    function renderEdges(animate: any) {
+        edgeGeoms = computeGeoms();
         edgeLayer.render({ geoms: edgeGeoms });
-        edgeOverlay.render({ geoms: edgeGeoms, ms });
+        edgeOverlay.render({ geoms: edgeGeoms, ms: clamp(1 / (vw() / cam.w), 1, 1.7) });
+        refreshEdgeRefs();
+        applyEdgeGeometry();
         if (animate && edgeGeoms.length) {
             scene.classList.add('drawing');
             const paths = edgeGeoms
-                .map(g => gEdges.querySelector('[data-edge="' + CSS.escape(g.key) + '"] .e-line'))
+                .map((g: any) => edgeRefs.get(g.key)?.line)
                 .filter(Boolean);
             for (const el of paths) {
                 const L = el.getTotalLength();
@@ -174,7 +234,8 @@ export function mountEngine() {
             }, 1150);
         }
     }
-    const updateEdgeGeometry = () => renderEdges(false);
+    /* por frame (drag/pan/zoom): só recalcula geometria e aplica atributos */
+    const updateEdgeGeometry = () => { edgeGeoms = computeGeoms(); applyEdgeGeometry(); };
 
     function buildAdj() {
         adj = {};
@@ -213,8 +274,10 @@ export function mountEngine() {
     const vs = () => ({ rw: canvas.clientWidth, rh: canvas.clientHeight });
     const vw = () => canvas.clientWidth;
     function normalizeH() { const { rw, rh } = vs(); cam.h = cam.w * rh / Math.max(1, rw); }
+    let sceneRect: any = null; /* cache do rect da cena durante gestos */
+    function cacheSceneRect() { sceneRect = scene.getBoundingClientRect(); }
     function screenToWorld(cx: any, cy: any) {
-        const r = scene.getBoundingClientRect();
+        const r = sceneRect ?? (sceneRect = scene.getBoundingClientRect());
         return { x: cam.x + (cx - r.left) / r.width * cam.w, y: cam.y + (cy - r.top) / r.height * cam.h };
     }
     function applyView() {
@@ -332,6 +395,7 @@ export function mountEngine() {
     function onTableDown(e: any, ent: any) {
         if (e.button !== 0 || animating || previewMode) return;
         e.stopPropagation();
+        cacheSceneRect();
         const p = screenToWorld(e.clientX, e.clientY);
         dragState = { ent, ox: p.x - ent.x, oy: p.y - ent.y, moved: false };
         scene.setPointerCapture(e.pointerId);
@@ -342,6 +406,7 @@ export function mountEngine() {
         if (e.button === 1) { e.preventDefault(); }
         if (e.target !== scene) return;
         if (e.button !== 0 && e.button !== 1) return;
+        cacheSceneRect();
         panState = { sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y, moved: false };
         scene.setPointerCapture(e.pointerId);
         scene.classList.add('panning');
@@ -358,7 +423,7 @@ export function mountEngine() {
         } else if (panState) {
             const dx = e.clientX - panState.sx, dy = e.clientY - panState.sy;
             if (Math.abs(dx) + Math.abs(dy) > 3) panState.moved = true;
-            const r = scene.getBoundingClientRect();
+            const r = sceneRect ?? (sceneRect = scene.getBoundingClientRect());
             cam.x = panState.cx - dx * cam.w / r.width;
             cam.y = panState.cy - dy * cam.h / r.height;
             applyView();
@@ -393,6 +458,16 @@ export function mountEngine() {
     /* ══════════ 10-minimap.js ══════════ */
     /* ══════════ minimapa ══════════ */
     let mmState: any = null;
+    let mmRects: any = new Map(); /* rect cacheado por entidade (updates diretos) */
+    function mmRebuild() {
+        mmContent.textContent = '';
+        mmRects = new Map();
+        for (const e of model.entities) {
+            if (e.hidden) continue;
+            const r = svgEl('rect', { x: 0, y: 0, width: 0, height: 0, rx: 2, class: 'mm-t' + (e.name === selectedId ? ' sel' : '') });
+            mmRects.set(e.name, r); mmContent.append(r);
+        }
+    }
     function updateMinimap() {
         const bb = contentBBox();
         if (!bb) { mmContent.textContent = ''; mmView.setAttribute('width', 0); mmState = null; return; }
@@ -401,15 +476,17 @@ export function mountEngine() {
         const h = Math.max(bb.y + bb.h, cam.y + cam.h) + 40 - ry;
         const s = Math.min(174 / w, 104 / h), ox = (190 - w * s) / 2, oy = (120 - h * s) / 2;
         mmState = { s, ox, oy, rx, ry };
-        mmContent.textContent = '';
+        const vis = new Set<string>();
         for (const e of model.entities) {
             if (e.hidden) continue;
-            mmContent.append(svgEl('rect', {
-                x: ox + (e.x - rx) * s, y: oy + (e.y - ry) * s,
-                width: Math.max(3, e.w * s), height: Math.max(2.4, e.h * s), rx: 2,
-                class: 'mm-t' + (e.name === selectedId ? ' sel' : '')
-            }));
+            vis.add(e.name);
+            let r = mmRects.get(e.name);
+            if (!r) { mmRebuild(); r = mmRects.get(e.name); }
+            r.setAttribute('x', ox + (e.x - rx) * s); r.setAttribute('y', oy + (e.y - ry) * s);
+            r.setAttribute('width', Math.max(3, e.w * s)); r.setAttribute('height', Math.max(2.4, e.h * s));
+            r.setAttribute('class', 'mm-t' + (e.name === selectedId ? ' sel' : ''));
         }
+        for (const [name, r] of mmRects) if (!vis.has(name)) { r.remove(); mmRects.delete(name); }
         mmView.setAttribute('x', ox + (cam.x - rx) * s); mmView.setAttribute('y', oy + (cam.y - ry) * s);
         mmView.setAttribute('width', cam.w * s); mmView.setAttribute('height', cam.h * s);
     }
@@ -1160,7 +1237,7 @@ export function mountEngine() {
         panelResize.addEventListener('pointermove', move);
         panelResize.addEventListener('pointerup', up);
     });
-    new ResizeObserver(() => applyView()).observe(canvas);
+    new ResizeObserver(() => { sceneRect = null; applyView(); }).observe(canvas);
 
 
     /* ══════════ 21-docs.js ══════════ */
