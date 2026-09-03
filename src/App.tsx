@@ -1,4 +1,4 @@
-import EngineHost from './components/EngineHost.jsx';
+import EngineHost from './components/EngineHost';
 
 export default function App() {
     return <EngineHost />;

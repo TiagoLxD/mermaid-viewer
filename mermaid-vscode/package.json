@@ -1,0 +1,64 @@
+{
+    "name": "meridian-er",
+    "displayName": "Meridian · Visualizador ER",
+    "description": "Visualizador interativo de diagramas entidade-relacionamento (erDiagram do Mermaid): tabelas arrastáveis, cardinalidades explícitas, 3 layouts automáticos, minimapa e exportação SVG/PNG.",
+    "version": "1.0.0",
+    "publisher": "meridian",
+    "license": "MIT",
+    "engines": {
+        "vscode": "^1.75.0"
+    },
+    "categories": [
+        "Visualization",
+        "Other"
+    ],
+    "icon": null,
+    "activationEvents": [
+        "onCustomEditor:meridian.viewer"
+    ],
+    "main": "./extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "meridian.openPreview",
+                "title": "Meridian: Abrir Visualizador",
+                "icon": "$(symbol-class)"
+            }
+        ],
+        "customEditors": [
+            {
+                "viewType": "meridian.viewer",
+                "displayName": "Meridian ER",
+                "priority": "default",
+                "selector": [
+                    {
+                        "filenamePattern": "*.mmd"
+                    },
+                    {
+                        "filenamePattern": "*.mermaid"
+                    }
+                ]
+            }
+        ],
+        "menus": {
+            "editor/title": [
+                {
+                    "command": "meridian.openPreview",
+                    "when": "resourceExtname == .mmd || resourceExtname == .mermaid",
+                    "group": "navigation"
+                }
+            ]
+        },
+        "keybindings": [
+            {
+                "command": "meridian.openPreview",
+                "key": "ctrl+alt+m",
+                "when": "resourceExtname == .mmd || resourceExtname == .mermaid"
+            }
+        ]
+    },
+    "scripts": {
+        "package": "vsce package"
+    },
+    "devDependencies": {}
+}

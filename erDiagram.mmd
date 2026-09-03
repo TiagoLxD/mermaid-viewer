@@ -1,0 +1,266 @@
+erDiagram
+    usuario {
+        STRING id PK
+        VARCHAR nome
+        VARCHAR email
+        VARCHAR senha
+        VARCHAR documento
+        VARCHAR telefone
+        INT nacionalidade_id FK
+        VARCHAR papel "aluno | professor"
+        BOOL ativo
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+
+    pais {
+        INT id PK
+        VARCHAR nome
+        VARCHAR sigla
+        INT ddi
+        BOOL ativo
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    idioma {
+        INT id PK
+        VARCHAR nome
+        VARCHAR codigo "en, pt, es"
+        BOOL ativo
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    especializacao {
+        INT id PK
+        VARCHAR nome
+        VARCHAR descricao
+        BOOL ativo
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    professor {
+        STRING id PK "FK -> usuario.id"
+        VARCHAR nome
+        VARCHAR titulo
+        TEXT bio
+        VARCHAR niveis "A1-C1"
+        DECIMAL avaliacao
+        VARCHAR videoUrl
+        VARCHAR disponibilidade
+        BOOL verificado
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    professor_especializacao {
+        STRING id PK
+        STRING professor_id FK
+        INT especializacao_id FK
+        DATETIME criadoEm
+    }
+
+    professor_idioma {
+        STRING id PK
+        STRING professor_id FK
+        INT idioma_id FK
+        VARCHAR nivel "A1-C2"
+        BOOL ativo
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    aluno {
+        STRING id PK "FK -> usuario.id ou id proprio"
+        STRING usuarioId FK "-> usuario.id"
+        VARCHAR nome
+        VARCHAR email
+        VARCHAR nivel "A1-C2"
+        INT progresso "0-100"
+        VARCHAR status "ativo | pendente"
+        VARCHAR telefone
+        VARCHAR ultimoAcesso
+        STRING professorId FK "opcional"
+        STRING conviteDe FK "opcional"
+        BOOL ativo
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    aluno_idioma {
+        STRING id PK
+        STRING aluno_id FK
+        INT idioma_id FK
+        VARCHAR nivel
+        BOOL ativo
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    avaliacao {
+        STRING id PK
+        STRING professor_id FK
+        VARCHAR autor
+        TEXT texto
+        INT nota "1-5"
+        DATETIME criadoEm
+    }
+
+    grupo {
+        STRING id PK
+        VARCHAR nome
+        VARCHAR nivel
+        VARCHAR horario "Ex: Terças e Quintas 16:00"
+        STRING professorId FK
+        INT maxMembros
+        BOOL ativo
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    grupo_aluno {
+        STRING id PK
+        STRING grupo_id FK
+        STRING aluno_id FK
+        DATETIME criadoEm
+    }
+
+    agendamento {
+        STRING id PK
+        STRING professorId FK
+        STRING alunoId FK "opcional - individual"
+        STRING grupoId FK "opcional - grupo"
+        DATE data
+        TIME hora
+        VARCHAR tipo "individual | grupo"
+        VARCHAR linkEncontro
+        VARCHAR status
+        BOOL ativo
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    atividade {
+        STRING id PK
+        VARCHAR titulo
+        TEXT descricao
+        VARCHAR tipo "gramatica | vocabulario | conversacao"
+        DATE dataPrazo
+        VARCHAR status "ativa | concluida | rascunho"
+        BOOL ativo
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    atividade_aluno {
+        STRING id PK
+        STRING atividade_id FK
+        STRING aluno_id FK
+        BOOL concluido
+        DATETIME dataEntrega
+        DATETIME criadoEm
+    }
+
+    colecao {
+        STRING id PK
+        VARCHAR nome
+        TEXT descricao
+        VARCHAR categoria
+        STRING proprietarioId FK "-> professor.id"
+        INT totalCartoes
+        BOOL ativo
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    cartao {
+        STRING id PK
+        VARCHAR frente
+        TEXT verso
+        DECIMAL facilidade
+        INT intervalo
+        INT repeticoes
+        VARCHAR tags
+        STRING colecaoId FK
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    mensagem {
+        STRING id PK
+        STRING deId FK "-> usuario.id"
+        STRING paraId FK "-> aluno.usuarioId | usuario.id, opcional"
+        STRING grupoId FK "opcional"
+        TEXT mensagem
+        DATETIME data
+        VARCHAR tipo "plataforma | whatsapp | email"
+        BOOL lida
+        DATETIME criadoEm
+    }
+
+    pagamento {
+        STRING id PK
+        STRING alunoId FK
+        STRING aulaId FK "opcional"
+        STRING professorId FK "opcional repasse"
+        VARCHAR plano
+        VARCHAR valor "R$ 347,00"
+        DECIMAL valorTotal
+        DECIMAL valorDesconto
+        DECIMAL valorLiquido
+        VARCHAR moeda "BRL"
+        VARCHAR metodoPagamento "PIX | CARTAO | BOLETO"
+        VARCHAR status "pendente | pago | atrasado | reembolsado"
+        INT parcelas
+        VARCHAR gateway
+        VARCHAR transacaoGatewayId
+        TEXT qrCodePix
+        VARCHAR boletoUrl
+        DATE dataVencimento
+        DATETIME dataPagamento
+        BOOL ativo
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    lead {
+        STRING id PK
+        VARCHAR nome
+        VARCHAR telefone
+        DATETIME data
+        VARCHAR status "novo | contatado | agendado | convertido"
+        VARCHAR origem
+        DATETIME criadoEm
+        DATETIME atualizadoEm
+    }
+
+    %% Relacionamentos
+    pais ||--o{ usuario : "nacionalidade"
+    usuario ||--o| professor : "perfil_professor"
+    usuario ||--o| aluno : "perfil_aluno"
+    professor ||--o{ professor_especializacao : "possui"
+    especializacao ||--o{ professor_especializacao : "categoriza"
+    idioma ||--o{ professor_idioma : "ensinado_em"
+    professor ||--o{ professor_idioma : "ensina"
+    idioma ||--o{ aluno_idioma : "estudado_em"
+    aluno ||--o{ aluno_idioma : "estuda"
+    professor ||--o{ avaliacao : "recebe"
+    professor ||--o{ grupo : "gerencia"
+    grupo ||--o{ grupo_aluno : "contem"
+    aluno ||--o{ grupo_aluno : "participa"
+    professor ||--o{ agendamento : "ministra"
+    aluno ||--o{ agendamento : "participa_individual"
+    grupo ||--o{ agendamento : "agendado_em_grupo"
+    atividade ||--o{ atividade_aluno : "atribuida_a"
+    aluno ||--o{ atividade_aluno : "recebe"
+    professor ||--o{ colecao : "cria"
+    colecao ||--o{ cartao : "contem"
+    usuario ||--o{ mensagem : "envia"
+    aluno ||--o{ mensagem : "recebe"
+    grupo ||--o{ mensagem : "recebe_em_grupo"
+    aluno ||--o{ pagamento : "efetua"
+    professor ||--o{ pagamento : "recebe_repasse"
+    agendamento ||--o| pagamento : "referente_a"
