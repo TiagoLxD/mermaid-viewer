@@ -5,6 +5,7 @@ import { parseMermaid } from './parser';
 import { F, tw } from './measure';
 import { mountTables, mountEdgeLines, mountEdgeOverlays } from '../components/diagram/Scene';
 import { computeEdges } from './edges-geom';
+import { snapMove, pushOut, resolveOverlaps } from './drag-geom';
 import { highlightMermaid } from './highlight';
 import { buildFormatted } from './formatter';
 import { EXAMPLES } from './examples';
@@ -81,23 +82,6 @@ export function mountEngine() {
     /* ══════════ 05-layout.js ══════════ */
     /* ══════ layout: espaçamento garantido — usado por todos os modos ══════ */
     const GAP_X = 156, GAP_Y = 145;
-
-    function resolveOverlaps(nodes, iters, gx = GAP_X, gy = GAP_Y) {
-        for (let it = 0; it < iters; it++) {
-            let any = false;
-            for (let i = 0; i < nodes.length; i++)for (let j = i + 1; j < nodes.length; j++) {
-                const a = nodes[i], b = nodes[j];
-                const dx = (a.x + a.w / 2) - (b.x + b.w / 2), dy = (a.y + a.h / 2) - (b.y + b.h / 2);
-                const px = (a.w + b.w) / 2 + gx - Math.abs(dx), py = (a.h + b.h) / 2 + gy - Math.abs(dy);
-                if (px > 0 && py > 0) {
-                    any = true;
-                    if (px / (a.w + b.w) < py / (a.h + b.h)) { const s = (dx >= 0 ? 1 : -1) * px / 2; a.x += s; b.x -= s; }
-                    else { const s = (dy >= 0 ? 1 : -1) * py / 2; a.y += s; b.y -= s; }
-                }
-            }
-            if (!any) break;
-        }
-    }
 
     /* Empurra tabelas para fora do caminho reto das ligações,
        para as linhas não passarem por cima de entidades alheias */
@@ -771,33 +755,6 @@ export function mountEngine() {
     /* ══════════ arrastar tabelas + guias inteligentes ══════════ */
     let dragState = null, panState = null;
 
-    function snapMove(ent, nx, ny) {
-        const s = vw() / cam.w, thr = 8 / s;
-        let bx = null, by = null;
-        const A = { l: nx, r: nx + ent.w, cx: nx + ent.w / 2, t: ny, b: ny + ent.h, cy: ny + ent.h / 2 };
-        for (const o of model.entities) {
-            if (o === ent) continue;
-            const B = { l: o.x, r: o.x + o.w, cx: o.x + o.w / 2, t: o.y, b: o.y + o.h, cy: o.y + o.h / 2 };
-            for (const [ka, kb] of [['cx', 'cx'], ['l', 'l'], ['r', 'r'], ['l', 'r'], ['r', 'l']]) {
-                const d = B[kb] - A[ka];
-                if (Math.abs(d) < thr && (!bx || Math.abs(d) < Math.abs(bx.d))) bx = { d, x: B[kb], o };
-            }
-            for (const [ka, kb] of [['cy', 'cy'], ['t', 't'], ['b', 'b'], ['t', 'b'], ['b', 't']]) {
-                const d = B[kb] - A[ka];
-                if (Math.abs(d) < thr && (!by || Math.abs(d) < Math.abs(by.d))) by = { d, y: B[kb], o };
-            }
-        }
-        /* encaixe somente em UM eixo por vez (o mais próximo) — nunca na diagonal */
-        if (bx && by) {
-            if (Math.abs(bx.d) <= Math.abs(by.d)) by = null; else bx = null;
-        }
-        if (bx) nx += bx.d;
-        if (by) ny += by.d;
-        const out = { nx, ny, gx: null, gy: null };
-        if (bx) out.gx = { x: bx.x, y1: Math.min(ny, bx.o.y) - 26, y2: Math.max(ny + ent.h, bx.o.y + bx.o.h) + 26 };
-        if (by) out.gy = { y: by.y, x1: Math.min(nx, by.o.x) - 26, x2: Math.max(nx + ent.w, by.o.x + by.o.w) + 26 };
-        return out;
-    }
     function drawGuides(sn) {
         gGuides.textContent = '';
         if (sn.gx) gGuides.append(svgEl('line', { class: 'guide', x1: sn.gx.x, y1: sn.gx.y1, x2: sn.gx.x, y2: sn.gx.y2 }));
@@ -825,7 +782,7 @@ export function mountEngine() {
         if (dragState) {
             const p = screenToWorld(e.clientX, e.clientY);
             const ent = dragState.ent;
-            const sn = snapMove(ent, p.x - dragState.ox, p.y - dragState.oy);
+            const sn = snapMove(model.entities, ent, p.x - dragState.ox, p.y - dragState.oy, 8 / (vw() / cam.w));
             ent.x = sn.nx; ent.y = sn.ny;
             ent.g.setAttribute('transform', `translate(${ent.x} ${ent.y})`);
             drawGuides(sn); updateEdgeGeometry(); updateMinimap();
@@ -846,20 +803,7 @@ export function mountEngine() {
             gGuides.textContent = '';
             if (dragState.moved) {
                 /* nunca termina sobre outra tabela: empurra só ela para fora */
-                for (let rep = 0; rep < 60; rep++) {
-                    let overlapped = false;
-                    for (const o of model.entities) {
-                        if (o === ent) continue;
-                        const dx = (ent.x + ent.w / 2) - (o.x + o.w / 2), dy = (ent.y + ent.h / 2) - (o.y + o.h / 2);
-                        const px = (ent.w + o.w) / 2 + GAP_X - Math.abs(dx), py = (ent.h + o.h) / 2 + GAP_Y - Math.abs(dy);
-                        if (px > 0 && py > 0) {
-                            overlapped = true;
-                            if (px / (ent.w + o.w) < py / (ent.h + o.h)) ent.x += (dx >= 0 ? 1 : -1) * px;
-                            else ent.y += (dy >= 0 ? 1 : -1) * py;
-                        }
-                    }
-                    if (!overlapped) break;
-                }
+                pushOut(model.entities, ent, GAP_X, GAP_Y);
                 ent.g.setAttribute('transform', `translate(${ent.x} ${ent.y})`);
                 for (const e2 of model.entities) positions[e2.name] = { x: e2.x, y: e2.y };
                 store.set('pos', JSON.stringify(positions));
