@@ -3,7 +3,7 @@
 
 import { parseMermaid } from './parser';
 import { F, tw } from './measure';
-import { mountTables, mountEdgeLines, mountEdgeOverlays } from '../components/diagram/Scene';
+import { createSceneBridge } from './scene-bridge';
 import { computeEdges } from './edges-geom';
 import { snapMove, pushOut, GAP_X, GAP_Y } from './drag-geom';
 import { resolveOverlaps } from './drag-geom';
@@ -90,26 +90,22 @@ export function mountEngine() {
     const SEQ_TOP = 118, SEQ_STEP = 46;
     const mmCollapsed = new Set(); /* ramos do mindmap recolhidos (por nome do nó) */
 
-    const tables = mountTables(gTables);
+    const sceneBridge = createSceneBridge(gTables, gEdges, gTop);
     function mmToggle(name: any) {
         if (mmCollapsed.has(name)) mmCollapsed.delete(name);
         else mmCollapsed.add(name);
         applySource(src.value, { resetLayout: true, mode: layoutSel.value });
     }
     function renderTables(animate: any) {
-        tables.render({
+        for (const { id, g } of sceneBridge.renderTables({
             type: model.type,
             entities: model.entities.filter((e: any) => !e.hidden),
             animate,
             onToggle: mmToggle,
-        });
-        refreshRefs();
-    }
-    function refreshRefs() {
-        gTables.querySelectorAll('g.table').forEach((g: any) => {
-            const e = byId[g.dataset.id];
+        })) {
+            const e = byId[id];
             if (e) { e.g = g; e.inner = g.firstChild; }
-        });
+        }
     }
     /* visibilidade do mindmap: nó oculto se algum ancestral estiver recolhido */
     function mmHiddenState() {
@@ -142,100 +138,44 @@ export function mountEngine() {
     });
 
     /* ══════════ 07-edges.js ══════════ */
-    /* ══════════ arestas: React só na mudança ESTRUTURAL; por frame,
-       geometria aplicada por atributos diretos em refs cacheadas
-       (sem reconciliação/flushSync nos pointermove/zoom) ══════════ */
-    const edgeLayer = mountEdgeLines(gEdges);
-    const edgeOverlay = mountEdgeOverlays(gTop);
+    /* ══════════ arestas: geometria pura (edges-geom) + ponte de cena.
+       React só na mudança estrutural; por frame, atributos diretos. ══════════ */
     let edgeGeoms: any[] = [];
-    let edgeRefs: any = null;
-    let lastMs = 1;
-
-    function refreshEdgeRefs() {
-        /* cacheia refs por aresta: d/transforms viram updates diretos */
-        edgeRefs = new Map();
-        const esc = (s: any) => CSS.escape(String(s));
-        for (const g of edgeGeoms) {
-            const key = g.key;
-            const lineG = gEdges.querySelector('[data-edge="' + esc(key) + '"]');
-            if (!lineG) continue;
-            const mk = (sel: string) => gTop.querySelector('[data-edge="' + esc(sel) + '"]');
-            edgeRefs.set(key, {
-                line: lineG.querySelector('.e-line'),
-                arrow: lineG.querySelector('.e-arrow'),
-                mkA: mk(key + ':a'), mkB: mk(key + ':b'),
-                badgeA: mk(key + ':ba'), badgeB: mk(key + ':bb'),
-                label: mk(key),
-            });
-        }
-    }
-
+    function currentMs() { return clamp(1 / (vw() / cam.w), 1, 1.7); }
     function computeGeoms(): any[] {
-        const ms = clamp(1 / (vw() / cam.w), 1, 1.7); /* compensação de zoom */
-        lastMs = ms;
         return computeEdges({
             type: model.type,
             entities: model.entities.filter((e: any) => !e.hidden && e.x != null),
             relations: model.relations,
             seqTop: SEQ_TOP, seqStep: SEQ_STEP, seqBottom: model.seqBottom,
-            ms,
+            ms: currentMs(),
         });
     }
-
-    /* aplica geometria direto nos elementos cacheados (sem React) */
-    function applyEdgeGeometry() {
-        if (!edgeRefs) refreshEdgeRefs();
-        for (const g of edgeGeoms) {
-            const R = edgeRefs.get(g.key);
-            if (!R) continue;
-            if (g.kind === 'life') { R.line?.setAttribute('d', g.d); continue; }
-            R.line?.setAttribute('d', g.d);
-            if (R.arrow && g.arrow) {
-                R.arrow.setAttribute('d', g.arrow.d);
-                R.arrow.setAttribute('transform', `translate(${g.arrow.x} ${g.arrow.y}) rotate(${g.arrow.rot})`);
-            }
-            R.mkA?.setAttribute('transform', `translate(${g.ax} ${g.ay}) rotate(${g.aRot}) scale(${lastMs})`);
-            R.mkB?.setAttribute('transform', `translate(${g.bx} ${g.by}) rotate(${g.bRot}) scale(${lastMs})`);
-            R.badgeA?.setAttribute('transform', g.badgeA ? `translate(${g.badgeA.x} ${g.badgeA.y}) scale(${lastMs})` : 'scale(0)');
-            R.badgeB?.setAttribute('transform', g.badgeB ? `translate(${g.badgeB.x} ${g.badgeB.y}) scale(${lastMs})` : 'scale(0)');
-            if (R.label) {
-                R.label.setAttribute('transform', `translate(${g.lx} ${g.ly})`);
-                const lr = R.label.querySelector('rect'), lt = R.label.querySelector('text');
-                lr?.setAttribute('x', -g.lw / 2);
-                lt?.setAttribute('y', 3.5);
-            }
-        }
-    }
-
-    /* render estrutural: arestas novas/mudança de tipo → React + refs */
     function renderEdges(animate: any) {
         edgeGeoms = computeGeoms();
-        edgeLayer.render({ geoms: edgeGeoms });
-        edgeOverlay.render({ geoms: edgeGeoms, ms: clamp(1 / (vw() / cam.w), 1, 1.7) });
-        refreshEdgeRefs();
-        applyEdgeGeometry();
+        sceneBridge.renderEdges(edgeGeoms, currentMs());
         if (animate && edgeGeoms.length) {
             scene.classList.add('drawing');
             const paths = edgeGeoms
-                .map((g: any) => edgeRefs.get(g.key)?.line)
+                .map((g: any) => sceneBridge.edgeLineEl(g.key))
                 .filter(Boolean);
             for (const el of paths) {
-                const L = el.getTotalLength();
-                el.style.strokeDasharray = L; el.style.strokeDashoffset = L;
-                el.getBoundingClientRect();
-                el.style.transition = 'stroke-dashoffset .9s cubic-bezier(.35,0,.25,1)';
-                requestAnimationFrame(() => { el.style.strokeDashoffset = '0'; });
+                const L = el!.getTotalLength();
+                el!.style.strokeDasharray = String(L); el!.style.strokeDashoffset = String(L);
+                el!.getBoundingClientRect();
+                el!.style.transition = 'stroke-dashoffset .9s cubic-bezier(.35,0,.25,1)';
+                requestAnimationFrame(() => { el!.style.strokeDashoffset = '0'; });
             }
             setTimeout(() => {
                 scene.classList.remove('drawing');
                 for (const el of paths) {
-                    el.style.transition = ''; el.style.strokeDasharray = ''; el.style.strokeDashoffset = '';
+                    el!.style.transition = ''; el!.style.strokeDasharray = ''; el!.style.strokeDashoffset = '';
                 }
             }, 1150);
         }
     }
-    /* por frame (drag/pan/zoom): só recalcula geometria e aplica atributos */
-    const updateEdgeGeometry = () => { edgeGeoms = computeGeoms(); applyEdgeGeometry(); };
+    /* por frame (drag/pan/zoom): recalcula geometria e aplica atributos */
+    const updateEdgeGeometry = () => { edgeGeoms = computeGeoms(); sceneBridge.updateEdges(edgeGeoms, currentMs()); };
 
     function buildAdj() {
         adj = {};
@@ -257,13 +197,7 @@ export function mountEngine() {
             if (E.kind === 'life') continue;
             const hit = !!act && (E.aName === act || E.bName === act);
             const dim = !!act && !hit;
-            const sel = '[data-edge="' + CSS.escape(E.key) + '"]';
-            gEdges.querySelectorAll(sel).forEach((el: any) => {
-                el.classList.toggle('on', hit); el.classList.toggle('dim', dim);
-            });
-            gTop.querySelectorAll(sel).forEach((el: any) => {
-                el.classList.toggle('on', hit); el.classList.toggle('dim', dim);
-            });
+            sceneBridge.setEdgeFocus(E.key, hit, dim);
         }
         updateMinimap();
     }

@@ -54,8 +54,7 @@ describe('EdgeOverlays · refs por data-edge (bug: pés de galinha presos ao arr
     });
 
     it('consulta do bridge encontra todos os refs (selectores do refreshEdgeRefs)', () => {
-        const esc = (s: string) => s.replace(/[&>:]/g, (c) => ({ '&': '&amp;', '>': '&gt;', ':': ':' }[c] || c));
-        /* CSS.escape no browser escapa ':' como '\:' — simulamos via querySelector real no jsdom */
+        /* CSS.escape real do jsdom — mesmos selectores do refreshEdgeRefs */
         const holder = document.createElement('g');
         holder.innerHTML = html.replace(/class="/g, 'class="');
         document.body.append(holder);
