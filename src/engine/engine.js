@@ -5,7 +5,13 @@ import { parseMermaid } from './parser';
 import { F, tw } from './measure';
 import { mountTables, mountEdgeLines, mountEdgeOverlays } from '../components/diagram/Scene';
 import { computeEdges } from './edges-geom';
-import { snapMove, pushOut, resolveOverlaps } from './drag-geom';
+import { snapMove, pushOut } from './drag-geom';
+import { edgeClearance } from './layout-clearance';
+import { resolveOverlaps } from './drag-geom';
+import { store } from './store';
+import { createHistory } from './history';
+import { showToast } from './toast';
+import { entityAtCaret as entityAtCaretPure } from './caret';
 import { highlightMermaid } from './highlight';
 import { buildFormatted } from './formatter';
 import { EXAMPLES } from './examples';
@@ -26,10 +32,6 @@ export function mountEngine() {
     const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
     const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     function svgEl(tag, attrs = {}) { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); return el; }
-    const store = {
-        get(k) { try { return localStorage.getItem('meridian:' + k) } catch (e) { return null } },
-        set(k, v) { try { localStorage.setItem('meridian:' + k, v) } catch (e) { } }
-    };
     /* aplica o tema salvo imediatamente — evita flash de tema errado no load */
     try {
         const t0 = localStorage.getItem('meridian:theme');
@@ -85,32 +87,6 @@ export function mountEngine() {
 
     /* Empurra tabelas para fora do caminho reto das ligações,
        para as linhas não passarem por cima de entidades alheias */
-    function edgeClearance(nodes, links, passes) {
-        for (let p = 0; p < passes; p++) {
-            let moved = false;
-            for (const [i, j] of links) {
-                const a = nodes[i], b = nodes[j];
-                const ax = a.x + a.w / 2, ay = a.y + a.h / 2, bx = b.x + b.w / 2, by = b.y + b.h / 2;
-                const ex = bx - ax, ey = by - ay, len2 = ex * ex + ey * ey || 1;
-                for (let k = 0; k < nodes.length; k++) {
-                    if (k === i || k === j) continue;
-                    const c = nodes[k];
-                    const cx = c.x + c.w / 2, cy = c.y + c.h / 2;
-                    const t = clamp(((cx - ax) * ex + (cy - ay) * ey) / len2, 0, 1);
-                    const px = ax + ex * t, py = ay + ey * t;
-                    let dx = cx - px, dy = cy - py, d = Math.hypot(dx, dy);
-                    const need = Math.min(c.w, c.h) / 2 + 40;
-                    if (d < need) {
-                        if (d < 0.01) { const ang = (k * 2.399) % 6.283; dx = Math.cos(ang); dy = Math.sin(ang); d = 1; }
-                        c.x += dx / d * (need - d); c.y += dy / d * (need - d); moved = true;
-                    }
-                }
-            }
-            if (!moved) break;
-            resolveOverlaps(nodes, 60);
-        }
-    }
-
     /* modo Forças — grafo físico com repulsão ciente do tamanho */
     function forceInto(nodes, links, fromCurrent) {
         const n = nodes.length;
@@ -1058,12 +1034,8 @@ export function mountEngine() {
 
     /* ══════════ 14-ui.js ══════════ */
     /* ══════════ toasts / tema / painel / menus / docs ══════════ */
-    function toast(msg, type = '') {
-        const t = document.createElement('div'); t.className = 'toast ' + type; t.textContent = msg;
-        $('toasts').append(t);
-        requestAnimationFrame(() => t.classList.add('show'));
-        setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2400);
-    }
+    const toast = (msg, type = '') => showToast($('toasts'), msg, type);
+
     function exportMMD() {
         if (!src.value.trim()) { toast('Nada para salvar', 'err'); return; }
         downloadBlob(new Blob([src.value], { type: 'text/plain;charset=utf-8' }), 'diagrama-er.mmd');
@@ -1323,16 +1295,10 @@ export function mountEngine() {
 
     /* ══════════ 18-undo.js ══════════ */
     /* ══════════ undo / redo ══════════ */
-    const undoStack = [], redoStack = [];
-    let beforeState = null, lastPushAt = 0;
-    const HIST_LIMIT = 150;
+    const hist = createHistory();
+    let beforeState = null;
     const snapState = () => ({ value: src.value, s: src.selectionStart, e: src.selectionEnd });
-    function pushHistory() {
-        undoStack.push(snapState());
-        if (undoStack.length > HIST_LIMIT) undoStack.shift();
-        redoStack.length = 0;
-        lastPushAt = Date.now();
-    }
+    function pushHistory() { hist.push(snapState()); }
     function restoreState(h) {
         src.value = h.value;
         src.selectionStart = h.s; src.selectionEnd = h.e;
@@ -1341,14 +1307,12 @@ export function mountEngine() {
         closeAc(); renderHighlight(); updateGutter(); scheduleApply();
     }
     function undo() {
-        if (!undoStack.length) return;
-        redoStack.push(snapState());
-        restoreState(undoStack.pop());
+        const h = hist.undo(snapState());
+        if (h) restoreState(h);
     }
     function redo() {
-        if (!redoStack.length) return;
-        undoStack.push(snapState());
-        restoreState(redoStack.pop());
+        const h = hist.redo(snapState());
+        if (h) restoreState(h);
     }
 
 
@@ -1369,12 +1333,7 @@ export function mountEngine() {
     let lastLen = src.value.length, lastCaret = 0, lastSel = 0;
     src.addEventListener('input', () => {
         /* digitação: agrupa rajadas de até 500ms num único passo de undo */
-        if (Date.now() - lastPushAt > 500 && beforeState) {
-            undoStack.push(beforeState);
-            if (undoStack.length > HIST_LIMIT) undoStack.shift();
-            redoStack.length = 0;
-        }
-        lastPushAt = Date.now();
+        hist.noteBurst(beforeState);
         const pos = src.selectionStart;
         /* removidos = tamanho da seleção substituída; inseridos = crescimento do texto */
         const removed = Math.max(0, lastSel - lastCaret);
@@ -1391,26 +1350,8 @@ export function mountEngine() {
     src.addEventListener('click', () => { snipState = null; closeAc(); updateGutter(); editorFocusEntity(); });
 
     /* clique no editor → foca/destaca a entidade no canvas */
-    function entityAtCaret(pos) {
-        const lineStart = src.value.lastIndexOf('\n', pos - 1) + 1;
-        let lineEnd = src.value.indexOf('\n', lineStart); if (lineEnd === -1) lineEnd = src.value.length;
-        const line = src.value.slice(lineStart, lineEnd);
-        /* 1) nome de entidade na própria linha (o mais próximo do cursor) */
-        const col = pos - lineStart;
-        const cands = [...line.matchAll(/[A-Za-z_][\w.\-]*/g)]
-            .filter(m => byId[m[0]])
-            .sort((a, b) => Math.abs(a.index - col) - Math.abs(b.index - col));
-        if (cands.length) return cands[0][0];
-        /* 2) dentro de um bloco ENT { ... } */
-        let cur = null;
-        for (const l of src.value.slice(0, lineStart).split('\n')) {
-            const t = l.trim();
-            const o = t.match(/^([A-Za-z_][\w.\-]*)\s*\{$/);
-            if (o) cur = o[1];
-            else if (/^\}+\s*$/.test(t)) cur = null;
-        }
-        return cur && byId[cur] ? cur : null;
-    }
+    const entityAtCaret = pos => entityAtCaretPure(src.value, pos, new Set(Object.keys(byId)));
+
     function editorFocusEntity() {
         const name = entityAtCaret(src.selectionStart);
         const e = name && byId[name];
