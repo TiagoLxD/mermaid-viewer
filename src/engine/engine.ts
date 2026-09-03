@@ -4,7 +4,9 @@
 import { parseMermaid } from './parser';
 import { F, tw } from './measure';
 import { createSceneBridge } from './scene-bridge';
-import { computeEdges } from './edges-geom';
+import { expandAt, adjustStops, computeAcContext, acOptions, isInsideEntityBlock, type ResolvedStop } from './snippets';
+import { computeEdges, type EdgeGeom } from './edges-geom';
+import type { Entity, ParseResult } from './types';
 import { snapMove, pushOut, GAP_X, GAP_Y } from './drag-geom';
 import { resolveOverlaps } from './drag-geom';
 import { layoutPositions } from './layout';
@@ -17,6 +19,10 @@ import { buildFormatted } from './formatter';
 import { EXAMPLES } from './examples';
 
 let engineMounted = false; /* StrictMode roda o effect 2× em dev — sem guard, listeners duplicam */
+/** Entidade de cena: geometria garantida (pós-measure) + refs de DOM. */
+type Ent = Entity & { x: number; y: number; w: number; h: number; g?: Element; inner?: Element };
+type SceneModel = Omit<ParseResult, 'entities'> & { entities: Ent[]; seqBottom?: number };
+
 export function mountEngine() {
     if (engineMounted) return;
     engineMounted = true;
@@ -86,7 +92,10 @@ export function mountEngine() {
 
     /* ══════════ 06-tables.js ══════════ */
     /* ══════════ cena React: nós declarativos + delegação de interação ══════════ */
-    let model: any = { entities: [], relations: [] }, byId: any = {}, adj: any = {}, positions: any = {};
+    let model: SceneModel = { type: 'er', entities: [], relations: [], errors: [] };
+    const byId: Record<string, Ent> = {};
+    let adj: Record<string, Set<string>> = {};
+    let positions: Record<string, { x: number; y: number }> = {};
     const SEQ_TOP = 118, SEQ_STEP = 46;
     const mmCollapsed = new Set(); /* ramos do mindmap recolhidos (por nome do nó) */
 
@@ -104,7 +113,7 @@ export function mountEngine() {
             onToggle: mmToggle,
         })) {
             const e = byId[id];
-            if (e) { e.g = g; e.inner = g.firstChild; }
+            if (e) { e.g = g; e.inner = g.firstElementChild ?? undefined; }
         }
     }
     /* visibilidade do mindmap: nó oculto se algum ancestral estiver recolhido */
@@ -140,9 +149,9 @@ export function mountEngine() {
     /* ══════════ 07-edges.js ══════════ */
     /* ══════════ arestas: geometria pura (edges-geom) + ponte de cena.
        React só na mudança estrutural; por frame, atributos diretos. ══════════ */
-    let edgeGeoms: any[] = [];
+    let edgeGeoms: EdgeGeom[] = [];
     function currentMs() { return clamp(1 / (vw() / cam.w), 1, 1.7); }
-    function computeGeoms(): any[] {
+    function computeGeoms(): EdgeGeom[] {
         return computeEdges({
             type: model.type,
             entities: model.entities.filter((e: any) => !e.hidden && e.x != null),
@@ -190,8 +199,8 @@ export function mountEngine() {
         const act = hoverId || selectedId;
         for (const name in byId) {
             const g = byId[name].g;
-            g.classList.toggle('sel', name === selectedId);
-            g.classList.toggle('dimt', !!act && name !== act && !(adj[name] && adj[name].has(act)));
+            g?.classList.toggle('sel', name === selectedId);
+            g?.classList.toggle('dimt', !!act && name !== act && !(adj[name] && adj[name].has(act)));
         }
         for (const E of edgeGeoms) {
             if (E.kind === 'life') continue;
@@ -485,7 +494,7 @@ export function mountEngine() {
         const res = parseMermaid(code);
         if (res.errors.length) { setParseState(res.errors); return false; }
         setParseState(null as any, res);
-        model = res;
+        model = res as SceneModel;
         if (model.type === 'mindmap') mmHiddenState();
         for (const e of model.entities) if (!e.hidden) measureEntity(e);
         if (model.type === 'seq') {
@@ -506,8 +515,8 @@ export function mountEngine() {
             }
             if (anyNew) resolveOverlaps(model.entities, 40);
         }
-        byId = {};
-        model.entities.forEach((e: any) => { if (!e.hidden) byId[e.name] = e; });
+        for (const k of Object.keys(byId)) delete byId[k];
+        model.entities.forEach((e: Ent) => { if (!e.hidden) byId[e.name] = e; });
         renderTables(animate);
         for (const k of Object.keys(positions)) if (!byId[k]) delete positions[k];
         for (const e of model.entities) positions[e.name] = { x: e.x, y: e.y };
@@ -699,37 +708,8 @@ export function mountEngine() {
     /* ══════════ 16-snippets.js ══════════ */
     /* ══════════ snippets: slash commands + tabstops ══════════ */
     const snipMenu = document.getElementById('snipMenu') as HTMLElement;
-    const SNIPPETS = [
-        { cmd: '/table', desc: 'bloco de entidade { }', body: '${1:TABELA} {\n    ${2:string} ${3:campo}\n    ${4:string} ${5:campo}\n}' },
-        { cmd: '/one-many', desc: 'um→muitos  ||--o{', body: '${1:TABELA} ||--o{ ${2:TABELA} : ${3:relacao}' },
-        { cmd: '/many-one', desc: 'muitos→um  }o--||', body: '${1:TABELA} }o--|| ${2:TABELA} : ${3:relacao}' },
-        { cmd: '/many-many', desc: 'muitos→muitos  }o--o{', body: '${1:TABELA} }o--o{ ${2:TABELA} : ${3:relacao}' },
-        { cmd: '/one-one', desc: 'um→um  ||--||', body: '${1:TABELA} ||--|| ${2:TABELA} : ${3:relacao}' },
-        { cmd: '/zero-one', desc: 'um→zero-um  ||--o|', body: '${1:TABELA} ||--o| ${2:TABELA} : ${3:relacao}' },
-        { cmd: '/indirect', desc: 'não-identificante (tracejado)  ||..o{', body: '${1:TABELA} ||..o{ ${2:TABELA} : ${3:relacao}' },
-        { cmd: '/pk', desc: 'linha de chave primária', body: '${1:int} ${2:id} PK' },
-        { cmd: '/fk', desc: 'linha de chave estrangeira', body: '${1:int} ${2:tabela_id} FK' },
-        { cmd: '/flow', desc: 'fluxo: nó → nó', body: '${1:Inicio}[${2:Começo}] --> ${3:Fim}[${4:Resultado}]' },
-        { cmd: '/decision', desc: 'fluxo: decisão losango', body: '${1:ok}{${2:Tudo certo?}} -->|${3:sim}| ${4:Fim}[${5:Fim}]' },
-        { cmd: '/seqmsg', desc: 'sequência: mensagem', body: '${1:Cliente} ->> ${2:Servidor} : ${3:requisição}' },
-        { cmd: '/seqreply', desc: 'sequência: resposta tracejada', body: '${1:Servidor} -->> ${2:Cliente} : ${3:resposta}' }
-    ];
-    let snipState: any = null;   /* { stops: [{start,len}], idx } */
-    let acList: any = [], acSel = 0, acCtx: any = null;
-
-    /* ── dicionários de autocomplete ── */
-    const TYPES = [
-        ['int', 'inteiro'], ['bigint', 'inteiro grande'], ['string', 'texto curto'], ['varchar(255)', 'texto limitado'],
-        ['text', 'texto longo'], ['boolean', 'verdadeiro/falso'], ['decimal(10,2)', 'numérico exato'], ['float', 'ponto flutuante'],
-        ['double', 'flutuante duplo'], ['date', 'data'], ['datetime', 'data e hora'], ['timestamp', 'data/hora com fuso'],
-        ['time', 'hora'], ['uuid', 'identificador único'], ['json', 'documento json'], ['blob', 'binário']
-    ];
-    const KEYS = [['PK', 'chave primária'], ['FK', 'chave estrangeira'], ['UK', 'chave única']];
-    const CONNS = [
-        ['||--o{', 'um → zero ou mais'], ['||--||', 'um → um'], ['||--o|', 'um → zero-um'], ['||--|{', 'um → um ou mais'],
-        ['||..o{', 'um → zero+ (tracejada)'], ['}o--o{', 'zero+ → zero+'], ['}o--||', 'zero+ → um'], ['}|--o{', 'um+ → zero+'],
-        ['}o..o{', 'zero+ → zero+ (tracejada)'], ['}o..||', 'zero+ → um (tracejada)']
-    ];
+    let snipState: { stops: ResolvedStop[]; idx: number } | null = null;
+    let acList: any[] = [], acSel = 0, acCtx: any = null;
 
     const monoCtx = document.createElement('canvas').getContext('2d')!;
     function caretXY() {
@@ -753,59 +733,15 @@ export function mountEngine() {
         for (const m of src.value.matchAll(/([A-Za-z_][\w.\-]*)\s+(?:\|o|\|\||\}o|\}\|)\s*(?:--|\.\.|==)\s*(?:o\||\|\||o\{|\|\{)\s+([A-Za-z_][\w.\-]*)/g)) { set.add(m[1]); set.add(m[2]); }
         return [...set];
     }
-    function inEntityBlock(pos: any) {
-        let depth = 0;
-        for (const l of src.value.slice(0, pos).split('\n')) {
-            const t = l.trim();
-            if (/^\}+\s*$/.test(t)) { depth = Math.max(0, depth - 1); continue; }
-            if (/\{\s*$/.test(t) && !/[|}]/.test(t)) depth++;
-        }
-        return depth > 0;
-    }
+    const inEntityBlock = (pos: any) => isInsideEntityBlock(src.value, pos);
+
     function computeAc(): any {
-        const pos = src.selectionStart;
-        if (pos !== src.selectionEnd) return null;
-        const before = src.value.slice(0, pos);
-        const lineStart = before.lastIndexOf('\n') + 1;
-        const line = before.slice(lineStart);
-        const sm = before.match(/\/[\w-]*$/);
-        if (sm) return { mode: 'slash', qr: { q: sm[0], start: pos - sm[0].length } };
-        const word = line.match(/[\w.\-()]*$/)[0] || '';
-        const wStart = pos - word.length;
-        const tokens = line.trim().split(/\s+/).filter(Boolean);
-        if (inEntityBlock(pos) && !/^\s*\}/.test(line)) {
-            /* indentação não afeta a detecção: linha vazia/espços = tipos;
-               1ª palavra = tipos; depois do tipo + espaço = chaves (PK/FK/UK) */
-            if (!tokens.length) return { mode: 'type', prefix: word, wStart };
-            if (tokens.length === 1) return /\s$/.test(line) ? { mode: 'key', prefix: word, wStart } : { mode: 'type', prefix: word, wStart };
-            return { mode: 'key', prefix: word, wStart };
-        }
-        if (!tokens.length) return null;
-        if (tokens.length === 1 && !/\s$/.test(line)) return null;                 /* digitando 1ª palavra fora de bloco */
-        if (tokens.length === 1) return { mode: 'conn', prefix: word, wStart };    /* "A " → conectores */
-        if (tokens.length === 2) {
-            if (/^[|}]/.test(tokens[1])) return { mode: 'entity', prefix: word, wStart }; /* "A ||--o{ " → entidades */
-            if (/^[|}]/.test(word)) return { mode: 'conn', prefix: word, wStart };
-            return null;
-        }
-        if (tokens.length === 3 && /^[A-Za-z_]/.test(tokens[2])) return { mode: 'entity', prefix: word, wStart };
-        return null;
+        return computeAcContext(src.value, src.selectionStart, inEntityBlock(src.selectionStart));
     }
     function renderAc() {
         acCtx = computeAc();
         if (!acCtx) { closeAc(); return; }
-        acList = [];
-        const p = (acCtx.prefix || '').toLowerCase();
-        if (acCtx.mode === 'slash')
-            acList = SNIPPETS.filter(s => s.cmd.startsWith(acCtx.qr.q.toLowerCase())).map(s => ({ label: s.cmd, desc: s.desc, snippet: s }));
-        else if (acCtx.mode === 'type')
-            acList = TYPES.filter(t => t[0].toLowerCase().startsWith(p)).map(t => ({ label: t[0], desc: t[1], insert: t[0] + ' ' }));
-        else if (acCtx.mode === 'key')
-            acList = KEYS.filter(t => t[0].toLowerCase().startsWith(p)).map(t => ({ label: t[0], desc: t[1], insert: t[0] }));
-        else if (acCtx.mode === 'conn')
-            acList = CONNS.filter(t => t[0].startsWith(acCtx.prefix)).map(t => ({ label: t[0], desc: t[1], insert: t[0] + ' ' }));
-        else if (acCtx.mode === 'entity')
-            acList = (entityNames() as string[]).filter((n: string) => n.toLowerCase().startsWith(p)).map((n: string) => ({ label: n, desc: 'entidade', insert: n + ' ' }));
+        acList = acOptions(acCtx, entityNames() as string[]);
         if (!acList.length) { closeAc(); return; }
         acSel = 0;
         snipMenu.textContent = '';
@@ -831,31 +767,18 @@ export function mountEngine() {
     }
     function acceptSnippet(s: any, qr: any) {
         /* expande ${n:default}: texto completo + offsets reais dos tabstops */
-        const stops = [];
-        let text = '', last = 0, m;
-        const re = /\$\{(\d+):([^}]*)\}/g;
-        while ((m = re.exec(s.body))) {
-            text += s.body.slice(last, m.index);              /* texto literal entre placeholders */
-            stops[+m[1]] = { at: text.length, len: m[2].length };
-            text += m[2];
-            last = m.index + m[0].length;
-        }
-        text += s.body.slice(last);
-        const pos = qr.start, end = src.selectionStart;
-        src.value = src.value.slice(0, pos) + text + src.value.slice(end);
+        const r = expandAt(src.value, qr.start, src.selectionStart, s.body);
+        src.value = r.value;
         pushHistory();
-        const resolved = stops
-            .map((st, n) => st && { start: pos + st.at, len: st.len, n })
-            .filter(Boolean)
-            .sort((a, b) => a.n - b.n);
-        src.selectionStart = src.selectionEnd = pos + text.length;
-        lastLen = src.value.length; lastCaret = pos + text.length; lastSel = pos + text.length;
-        snipState = resolved.length ? { stops: resolved, idx: 0 } : null;
+        src.selectionStart = src.selectionEnd = r.caret;
+        lastLen = src.value.length; lastCaret = r.caret; lastSel = r.caret;
+        snipState = r.stops.length ? { stops: r.stops, idx: 0 } : null;
         closeAc();
         if (snipState) jumpStop(0);
         renderHighlight(); scheduleApply();
     }
     function jumpStop(i: any) {
+        if (!snipState) return;
         const st = snipState.stops[i];
         if (!st) { snipState = null; return; }
         snipState.idx = i;
@@ -867,13 +790,8 @@ export function mountEngine() {
     /* mantém tabstops consistentes enquanto digita dentro do snippet */
     function snipAdjust(caretBefore: any, removed: any, inserted: any) {
         if (!snipState) return;
-        const delta = inserted - removed;
-        for (const st of snipState.stops) {
-            if (st.start > caretBefore) st.start += delta;
-            else if (st.start + st.len >= caretBefore) st.len += delta;
-        }
+        adjustStops(snipState.stops, caretBefore, removed, inserted);
     }
-
 
     /* ══════════ 17-gutter.js ══════════ */
     /* ══════════ gutter: numeração de linhas ══════════ */
