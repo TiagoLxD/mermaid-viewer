@@ -65,11 +65,13 @@ export function Stage() {
                     <Button
                         id="btnPreview"
                         className="tb-btn"
-                        icon="unlock"
                         title="Modo prévia: navegue sem mover tabelas (P)"
                         aria-label="Modo prévia"
                         aria-pressed="false"
-                    />
+                    >
+                        <span className="i-lock"><Icon name="lock" size={15} /></span>
+                        <span className="i-unlock"><Icon name="unlock" size={15} /></span>
+                    </Button>
                     <Button
                         id="btnFit"
                         className="tb-btn"
@@ -95,6 +97,3 @@ export function Stage() {
         </section>
     );
 }
-
-/** Ícone inline reutilizado pela toolbar do Stage (exportado para uso futuro). */
-export { Icon as StageIcon };

@@ -105,7 +105,10 @@ export function TopBar() {
                     modifier="icon-btn"
                     title="Alternar tema"
                     aria-label="Alternar tema"
-                />
+                >
+                    <span className="i-sun"><Icon name="sun" /></span>
+                    <span className="i-moon"><Icon name="moon" /></span>
+                </Button>
             </div>
         </header>
     );

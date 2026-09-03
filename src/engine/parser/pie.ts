@@ -1,4 +1,4 @@
-import type { Entity, ParseError, ParseResult, Relation } from '../types';
+import type { Entity, ParseError, ParseResult } from '../types';
 
 /* ══════════ parser pieDiagram — puro, sem DOM ══════════ */
 

@@ -1,4 +1,4 @@
-import type { Entity, EntityAttr, ParseError, ParseResult, Relation } from '../types';
+import type { Entity, ParseError, ParseResult, Relation } from '../types';
 
 /* ══════════ parser flowchart — puro, sem DOM ══════════ */
 

@@ -1785,3 +1785,10 @@ body.code-hidden #btnShowCode {
     font: italic 400 10.5px var(--mono);
     fill: var(--ink3);
 }
+/* ═══ ícones alternáveis via estado (renderizados em React, sem innerHTML) ═══ */
+#btnTheme .i-sun, #btnTheme .i-moon { display: none; }
+#btnTheme[data-theme="dark"] .i-sun { display: inline-flex; }
+#btnTheme[data-theme="light"] .i-moon { display: inline-flex; }
+#btnPreview .i-lock, #btnPreview .i-unlock { display: none; }
+#btnPreview[aria-pressed="true"] .i-lock { display: inline-flex; }
+#btnPreview[aria-pressed="false"] .i-unlock { display: inline-flex; }

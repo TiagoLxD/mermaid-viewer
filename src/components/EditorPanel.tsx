@@ -1,4 +1,5 @@
 import { Button } from '../shared/Button';
+import { Icon } from '../shared/Icon';
 
 /** Painel de código (textarea + highlight + gutter + snippets). */
 export function EditorPanel() {
@@ -8,7 +9,7 @@ export function EditorPanel() {
                 <span className="panel-title">Editor Mermaid</span>
                 <div className="actions">
                     <Button id="btnFormat" variant="sm">
-                        <span data-icon="wand" data-size="13" />
+                        <Icon name="wand" size={13} />
                         Formatar
                     </Button>
                     <Button

@@ -1,14 +1,15 @@
+import { ICON_COMPONENTS, type IconName } from '../components/diagram/icons';
+
 /**
- * Placeholder de ícone. O engine (mountEngine) varre todos os
- * `[data-icon]` do DOM e injeta o SVG correspondente via innerHTML.
+ * Ícone inline em React — substitui a injeção via `[data-icon]` do engine.
  */
 export interface IconProps {
-    /** nome do ícone no dicionário ICONS do engine (ex.: "chevD", "wand") */
-    name: string;
-    /** tamanho em px (padrão do engine: 16) */
+    name: IconName;
+    /** tamanho em px (padrão: 16) */
     size?: number;
 }
 
 export function Icon({ name, size = 16 }: IconProps) {
-    return <span data-icon={name} data-size={size} />;
+    const Cmp = ICON_COMPONENTS[name];
+    return Cmp ? <Cmp size={size} /> : null;
 }
