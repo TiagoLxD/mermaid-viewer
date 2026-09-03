@@ -30,6 +30,7 @@
     --shadow: 0 1px 2px rgba(35, 28, 15, .05), 0 10px 30px rgba(35, 28, 15, .08);
     --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
     --sans: 'Space Grotesk', 'Segoe UI', sans-serif;
+    --pie-txt: #FAF8F4;
 }
 
 :root[data-theme=dark] {
@@ -56,6 +57,7 @@
     --ok: #7DB88A;
     --sel: rgba(238, 123, 58, .24);
     --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 12px 32px rgba(0, 0, 0, .4);
+    --pie-txt: #141310;
 }
 
 html,
@@ -350,7 +352,7 @@ select:hover {
     border-right-color: transparent
 }
 
-#panel.hidden + #panelResize {
+#panel.hidden+#panelResize {
     display: none
 }
 
@@ -777,6 +779,298 @@ textarea::-webkit-scrollbar-thumb {
 .t-empty {
     fill: var(--ink3);
     font: italic 400 11px var(--mono)
+}
+
+/* ════ pie ════ */
+.pie-title {
+    fill: var(--ink);
+    font: 600 14px var(--sans)
+}
+
+.pie-slice {
+    stroke: var(--canvas);
+    stroke-width: 2;
+    transition: opacity .15s;
+    cursor: pointer
+}
+
+.table:hover .pie-slice {
+    opacity: .82
+}
+
+.pie-pct {
+    font: 700 11px var(--mono);
+    fill: var(--pie-txt);
+    pointer-events: none
+}
+
+.pie-c0 {
+    fill: #C2410C
+}
+
+.pie-c1 {
+    fill: #2F6F4F
+}
+
+.pie-c2 {
+    fill: #3B5BA5
+}
+
+.pie-c3 {
+    fill: #A16207
+}
+
+.pie-c4 {
+    fill: #7C3AED
+}
+
+.pie-c5 {
+    fill: #B3364E
+}
+
+.pie-c6 {
+    fill: #0E7490
+}
+
+.pie-c7 {
+    fill: #5E6B54
+}
+
+/* ════ C4 ════ */
+.c4-ext {
+    stroke-dasharray: 5 4
+}
+
+.c4-bar {
+    stroke: none
+}
+
+.c4-sub {
+    fill: var(--ink3);
+    font: 400 10.5px var(--mono)
+}
+
+.c4-tag {
+    fill: var(--ink3);
+    font: 600 8.5px var(--mono);
+    letter-spacing: .08em
+}
+
+.c4-person {
+    fill: #B45309
+}
+
+.c4-system {
+    fill: #3B5BA5
+}
+
+.c4-db {
+    fill: #2F6F4F
+}
+
+.c4-queue {
+    fill: #7C3AED
+}
+
+.c4-container {
+    fill: #0E7490
+}
+
+.c4-component {
+    fill: #A16207
+}
+
+:root[data-theme=dark] .pie-c0 {
+    fill: #EE7B3A
+}
+
+:root[data-theme=dark] .pie-c1 {
+    fill: #7DB88A
+}
+
+:root[data-theme=dark] .pie-c2 {
+    fill: #7FA3E8
+}
+
+:root[data-theme=dark] .pie-c3 {
+    fill: #D9A845
+}
+
+:root[data-theme=dark] .pie-c4 {
+    fill: #A78BFA
+}
+
+:root[data-theme=dark] .pie-c5 {
+    fill: #E4738B
+}
+
+:root[data-theme=dark] .pie-c6 {
+    fill: #38BDF8
+}
+
+:root[data-theme=dark] .pie-c7 {
+    fill: #A79F8E
+}
+
+:root[data-theme=dark] .c4-person {
+    fill: #EE7B3A
+}
+
+:root[data-theme=dark] .c4-system {
+    fill: #7FA3E8
+}
+
+:root[data-theme=dark] .c4-db {
+    fill: #7DB88A
+}
+
+:root[data-theme=dark] .c4-queue {
+    fill: #A78BFA
+}
+
+:root[data-theme=dark] .c4-container {
+    fill: #38BDF8
+}
+
+:root[data-theme=dark] .c4-component {
+    fill: #D9A845
+}
+
+/* ════ mindmap ════ */
+.mm-root {
+    fill: var(--accent);
+    fill-opacity: 1;
+    stroke: var(--accent-strong);
+    stroke-width: 1.6
+}
+
+.mm-root-t {
+    fill: var(--pie-txt);
+    font-weight: 700
+}
+
+.mm-c0 {
+    fill: #C2410C;
+    stroke: #C2410C
+}
+
+.mm-c1 {
+    fill: #2F6F4F;
+    stroke: #2F6F4F
+}
+
+.mm-c2 {
+    fill: #3B5BA5;
+    stroke: #3B5BA5
+}
+
+.mm-c3 {
+    fill: #A16207;
+    stroke: #A16207
+}
+
+.mm-c4 {
+    fill: #7C3AED;
+    stroke: #7C3AED
+}
+
+.mm-c5 {
+    fill: #B3364E;
+    stroke: #B3364E
+}
+
+.mm-c6 {
+    fill: #0E7490;
+    stroke: #0E7490
+}
+
+.mm-c7 {
+    fill: #5E6B54;
+    stroke: #5E6B54
+}
+
+.mm-c0,
+.mm-c1,
+.mm-c2,
+.mm-c3,
+.mm-c4,
+.mm-c5,
+.mm-c6,
+.mm-c7 {
+    fill-opacity: .45;
+    stroke-width: 1.6
+}
+
+.mm-d1 {
+    fill-opacity: .45
+}
+
+.mm-d2 {
+    fill-opacity: .28
+}
+
+.mm-d3 {
+    fill-opacity: .16
+}
+
+.mm-line {
+    stroke-width: 2
+}
+
+.mm-click {
+    cursor: pointer
+}
+
+.mm-tgl {
+    fill: var(--surface);
+    stroke: var(--line2);
+    stroke-width: 1
+}
+
+.mm-tgl-t {
+    fill: var(--ink2);
+    font: 700 11px var(--mono);
+    pointer-events: none
+}
+
+:root[data-theme=dark] .mm-c0 {
+    fill: #EE7B3A;
+    stroke: #EE7B3A
+}
+
+:root[data-theme=dark] .mm-c1 {
+    fill: #7DB88A;
+    stroke: #7DB88A
+}
+
+:root[data-theme=dark] .mm-c2 {
+    fill: #7FA3E8;
+    stroke: #7FA3E8
+}
+
+:root[data-theme=dark] .mm-c3 {
+    fill: #D9A845;
+    stroke: #D9A845
+}
+
+:root[data-theme=dark] .mm-c4 {
+    fill: #A78BFA;
+    stroke: #A78BFA
+}
+
+:root[data-theme=dark] .mm-c5 {
+    fill: #E4738B;
+    stroke: #E4738B
+}
+
+:root[data-theme=dark] .mm-c6 {
+    fill: #38BDF8;
+    stroke: #38BDF8
+}
+
+:root[data-theme=dark] .mm-c7 {
+    fill: #A79F8E;
+    stroke: #A79F8E
 }
 
 .badge {
@@ -1478,6 +1772,7 @@ body.code-hidden #btnShowCode {
         transform: translateX(-103%)
     }
 }
+
 /* ── adaptação React: #root é o contêiner flex do app ── */
 #root {
     display: flex;

@@ -191,7 +191,44 @@ export function mountEngine() {
         }
         class Peca {
     +String codigo
-        }`}
+        }`},
+        {
+            name: 'Distribuição de tempo (pizza)', code:
+                `pieDiagram
+        title Distribuição do tempo da squad
+        "Produto" : 34
+        "Suporte" : 22
+        "Vendas" : 18
+        "Marketing" : 12
+        "Infra" : 9
+        "Pesquisa" : 5`
+        },
+        {
+            name: 'Mapa mental', code:
+                `mindmap
+        root((Sistema))
+            Frontend
+                Web App
+                Mobile
+            Backend
+                API REST
+                Workers
+            Dados
+                PostgreSQL
+                Cache`
+        },
+        {
+            name: 'Contexto C4', code:
+                `C4Context
+        title Plataforma de cursos
+        Person(aluno, "Aluno", "Consome os cursos")
+        System(web, "Portal Web", "SPA React")
+        SystemDb(db, "Banco de Dados", "PostgreSQL")
+        Container(api, "API", "Node.js", "Serve os dados do catálogo")
+        Rel(aluno, web, "Usa", "HTTPS")
+        Rel(web, api, "Consulta", "JSON/HTTPS")
+        Rel(api, db, "Lê e escreve", "SQL")`
+        }
     ];
 
 
@@ -220,8 +257,110 @@ export function mountEngine() {
     }
 
     function detectType(text) {
-        const m = text.match(/^\s*(erDiagram|flowchart|graph|sequenceDiagram|classDiagram|stateDiagram-v2|stateDiagram)\b/m);
-        return { erDiagram: 'er', flowchart: 'flow', graph: 'flow', sequenceDiagram: 'seq', classDiagram: 'class', stateDiagram: 'flow', 'stateDiagram-v2': 'flow' }[m?.[1]] || 'er';
+        const m = text.match(/^\s*(erDiagram|flowchart|graph|sequenceDiagram|classDiagram|stateDiagram-v2|stateDiagram|pieDiagram|mindmap|C4Context|C4Container|C4Component|C4Dynamic|C4Deployment)\b/m);
+        return {
+            erDiagram: 'er', flowchart: 'flow', graph: 'flow', sequenceDiagram: 'seq', classDiagram: 'class',
+            stateDiagram: 'flow', 'stateDiagram-v2': 'flow',
+            pieDiagram: 'pie', mindmap: 'mindmap',
+            C4Context: 'c4', C4Container: 'c4', C4Component: 'c4', C4Dynamic: 'c4', C4Deployment: 'c4'
+        }[m?.[1]] || 'er';
+    }
+
+    /* ── parser pieChart ── */
+    function parsePie(text) {
+        const errors = [], slices = [];
+        let title = '';
+        text.split('\n').forEach((raw, i) => {
+            const line = raw.trim();
+            if (!line || line.startsWith('%%') || /^pieDiagram\b/i.test(line)) return;
+            if (/^showData$/i.test(line)) return;
+            let m = line.match(/^title\s+(.+)$/i);
+            if (m) { title = m[1].trim(); return; }
+            m = line.match(/^"([^"]*)"\s*:\s*([\d.]+)\s*$/);
+            if (m) {
+                const v = parseFloat(m[2]);
+                if (v > 0) { slices.push({ label: m[1] || ('fatia ' + (slices.length + 1)), value: v }); return; }
+                errors.push({ line: i + 1, msg: 'o valor deve ser maior que zero' }); return;
+            }
+            errors.push({ line: i + 1, msg: 'use "Rótulo" : valor' });
+        });
+        if (!slices.length && !errors.length) errors.push({ line: 1, msg: 'nenhuma fatia declarada' });
+        const entities = [];
+        if (title) entities.push({ name: '__pieTitle', pieTitle: true, label: title, attrs: [] });
+        slices.forEach((s, i) => entities.push({ name: '__slice' + i, label: s.label, value: s.value, attrs: [] }));
+        return { type: 'pie', entities, relations: [], errors, pieTotal: slices.reduce((s, x) => s + x.value, 0) };
+    }
+
+    /* ── parser mindmap (hierarquia por indentação) ── */
+    function parseMindmap(text) {
+        const ents = new Map(), relations = [], errors = [];
+        const ensure = (label, shape) => {
+            let key = label, n = 2;
+            while (ents.has(key) && ents.get(key).shape !== shape) key = label + ' ' + n++;
+            if (!ents.has(key)) ents.set(key, { name: key, label, shape, attrs: [] });
+            return key;
+        };
+        const chain = []; /* {indent, key} — tolera qualquer largura de indentação */
+        text.split('\n').forEach((raw, i) => {
+            const t = raw.trim();
+            if (!t || t.startsWith('%%') || t.startsWith('::') || /^mindmap\b/.test(t)) return;
+            const indent = raw.match(/^\s*/)[0].replace(/\t/g, '  ').length;
+            let label, shape = 'stadium', mm;
+            if (mm = t.match(/^(?:[\w\-.]+)?\(\((.+)\)\)$/)) { label = mm[1].trim(); shape = 'stadium'; }
+            else if (mm = t.match(/^(?:[\w\-.]+)?\[(.+)\]$/)) { label = mm[1].trim(); shape = 'rect'; }
+            else if (mm = t.match(/^(?:[\w\-.]+)?\((.+)\)$/)) { label = mm[1].trim(); shape = 'stadium'; }
+            else if (mm = t.match(/^(?:[\w\-.]+)?\{\{(.+)\}\}$/)) { label = mm[1].trim(); shape = 'diamond'; }
+            else if (/^[\w\-.][\w\-.\s]*$/.test(t)) { label = t; shape = 'stadium'; }
+            else { errors.push({ line: i + 1, msg: 'não entendi esta linha' }); return; }
+            const key = ensure(label, shape);
+            while (chain.length && chain[chain.length - 1].indent >= indent) chain.pop();
+            const parent = chain.length ? chain[chain.length - 1].key : null;
+            chain.push({ indent, key });
+            if (parent && parent !== key)
+                relations.push({ a: parent, b: key, label: '', dash: false, simple: true, aMk: 'none', bMk: 'none', mm: true });
+        });
+        return { type: 'mindmap', entities: [...ents.values()], relations, errors };
+    }
+
+    /* ── parser C4 model ── */
+    function parseC4(text) {
+        const ents = new Map(), relations = [], errors = [];
+        const STEREO = {
+            Person: 'person', Person_Ext: 'person', System: 'system', System_Ext: 'system',
+            SystemDb: 'db', SystemDb_Ext: 'db', SystemQueue: 'queue', SystemQueue_Ext: 'queue',
+            Container: 'container', Container_Ext: 'container', ContainerDb: 'db', ContainerDb_Ext: 'db',
+            Component: 'component', Component_Ext: 'component', ComponentDb: 'db'
+        };
+        const ensure = (name, label, sub, stereo, ext) => {
+            if (!ents.has(name)) ents.set(name, { name, label: label || name, sub: sub || '', stereo: stereo || 'system', ext: !!ext, attrs: [] });
+            else { const e = ents.get(name); if (label) e.label = label; if (sub) e.sub = sub; if (stereo) e.stereo = stereo; }
+            return ents.get(name);
+        };
+        text.split('\n').forEach((raw, i) => {
+            const line = raw.trim();
+            if (!line || line.startsWith('%%') || /^C4(Context|Container|Component|Dynamic|Deployment)\b/i.test(line)) return;
+            if (/^(title\s+|showData|\}+|Boundary\b|Enterprise_Boundary\b|System_Boundary\b|Container_Boundary\b)/i.test(line)) return;
+            let m = line.match(/^(Person|System|SystemDb|SystemQueue|Container|ContainerDb|Component|ComponentDb)(_Ext)?\s*\(\s*([\w\-.]+)\s*,\s*"([^"]*)"(?:\s*,\s*"([^"]*)")?(?:\s*,\s*"([^"]*)")?\s*\)/);
+            if (m) {
+                const fourArg = /^(Container|Component|ContainerDb|ComponentDb)/.test(m[1]);
+                const sub = fourArg ? (m[6] ?? m[5] ?? '') : (m[5] ?? '');
+                const tech = fourArg && m[6] ? (m[5] || '') : (m[6] || '');
+                ensure(m[3], m[4], [sub, tech].filter(Boolean).join(' · '), STEREO[m[1] + (m[2] || '')], !!m[2]);
+                return;
+            }
+            m = line.match(/^Rel(?:_(?:L|R|Up|Down|Back|Neigh))?\s*\(\s*([\w\-.]+)\s*,\s*([\w\-.]+)\s*,\s*"([^"]*)"(?:\s*,\s*"([^"]*)")?\s*\)/);
+            if (m) {
+                ensure(m[1]); ensure(m[2]);
+                relations.push({
+                    a: m[1], b: m[2], label: [m[3], m[4]].filter(Boolean).join(' · '),
+                    dash: false, simple: true, aMk: 'none', bMk: 'arrow'
+                });
+                return;
+            }
+            if (/^(Lay_|UpdateRel|Support|Deployment_Node|DeploymentNode|Add)/.test(line)) return;
+            errors.push({ line: i + 1, msg: 'não entendi esta linha' });
+        });
+        return { type: 'c4', entities: [...ents.values()], relations, errors };
     }
 
     /* ── parser flowchart ── */
@@ -330,6 +469,9 @@ export function mountEngine() {
         if (t === 'flow') return parseFlow(text);
         if (t === 'seq') return parseSeq(text);
         if (t === 'class') return parseClass(text);
+        if (t === 'pie') return parsePie(text);
+        if (t === 'mindmap') return parseMindmap(text);
+        if (t === 'c4') return parseC4(text);
         const ents = new Map(), relations = [], errors = [];
         const ensure = n => { if (!ents.has(n)) ents.set(n, { name: n, attrs: [] }); return ents.get(n); };
         const lines = text.split('\n');
@@ -381,7 +523,16 @@ export function mountEngine() {
     function tw(t, font) { mctx.font = font; return mctx.measureText(t).width; }
 
     function measureEntity(e) {
-        if (model.type === 'flow') {
+        if (model.type === 'pie') {
+            if (e.pieTitle) { e.w = Math.round(tw(e.label, '600 14px "Space Grotesk", sans-serif') + 20); e.h = 30; }
+            return; /* geometria das fatias calculada no layout */
+        }
+        if (model.type === 'c4') {
+            e.w = Math.round(Math.max(150, tw(e.label, F.title) + 40, e.sub ? tw(e.sub, F.comment) + 44 : 0));
+            e.h = e.sub ? 64 : 50;
+            return;
+        }
+        if (model.type === 'flow' || model.type === 'mindmap') {
             const lbl = e.label ?? e.name;
             e.w = Math.max(90, Math.round(tw(lbl, F.name) + (e.shape === 'diamond' ? 90 : 44)));
             e.h = e.shape === 'diamond' ? 84 : 46;
@@ -684,6 +835,83 @@ export function mountEngine() {
         }
     }
 
+    /* modo Mindmap — árvore clássica: folhas empilhadas, pai centrado nos
+       filhos, subárvores sem sobreposição → ramos nunca se cruzam.
+       Cada raiz/ramo ganha uma cor (usada na renderização). */
+    function mindTreeInto(nodes, links, n) {
+        const children = Array.from({ length: n }, () => []);
+        const indeg = new Array(n).fill(0);
+        for (const [i, j] of links) { if (i !== j) { children[i].push(j); indeg[j]++; } }
+        const roots = [...Array(n).keys()].filter(i => !indeg[i]);
+        if (!roots.length) roots.push(0);
+        const visited = new Set();
+        const V_GAP = 34, H_GAP = 110;
+        let colorN = 0;
+        /* posiciona a subárvore i com folhas empilhadas a partir de cur.y;
+           devolve yc do nó e anota os membros em bag */
+        const walk = (i, depth, color, cur, bag) => {
+            visited.add(i);
+            bag.push(i);
+            const nd = nodes[i];
+            nd.depth = depth; nd.color = color;
+            const kids = children[i].filter(k => !visited.has(k));
+            if (!kids.length) {
+                nd.yc = cur.y + nd.h / 2;
+                cur.y += nd.h + V_GAP;
+            } else {
+                /* filhos diretos da raiz iniciam um novo ramo (cor própria);
+                   descendentes herdam a cor do ramo */
+                const ys = kids.map(k => walk(k, depth + 1, depth === 0 ? colorN++ : color, cur, bag));
+                nd.yc = (ys[0] + ys[ys.length - 1]) / 2;
+            }
+            return nd.yc;
+        };
+        /* cada ramo de topo vira uma subárvore independente (coords relativas);
+           ramos alternam lado: 1º direita, 2º esquerda, 3º direita… */
+        const branches = [];
+        for (const r of roots) {
+            visited.add(r);
+            Object.assign(nodes[r], { depth: 0, color: -1 });
+            const kids = children[r].filter(k => !visited.has(k));
+            kids.forEach(k => {
+                const bag = [], cur = { y: 0 };
+                walk(k, 1, colorN++, cur, bag);
+                branches.push({ bag, h: cur.y, side: branches.length % 2, root: r });
+            });
+            if (!kids.length) nodes[r].yc = 0;
+        }
+        /* empilha cada lado centrado no eixo da raiz */
+        const hgt = list => list.reduce((s, b) => s + b.h, 0) + V_GAP * Math.max(0, list.length - 1);
+        for (const side of [0, 1]) {
+            const list = branches.filter(b => b.side === side);
+            let y = -hgt(list) / 2;
+            for (const b of list) {
+                for (const i of b.bag) nodes[i].yc += y;
+                y += b.h + V_GAP;
+            }
+        }
+        /* raiz centrada no meio vertical dos ramos dela */
+        for (const r of roots) {
+            const ys = branches.filter(b => b.root === r).map(b => nodes[b.bag[0]].yc);
+            if (ys.length) nodes[r].yc = (Math.min(...ys) + Math.max(...ys)) / 2;
+        }
+        /* colunas por profundidade (à direita); lado esquerdo espelha */
+        const colW = new Map();
+        for (const nd of nodes) {
+            if (nd.depth == null) { nd.depth = 0; nd.color = -1; }
+            colW.set(nd.depth, Math.max(colW.get(nd.depth) || 0, nd.w));
+        }
+        let x = 0; const colX = new Map();
+        [...colW.keys()].sort((a, b) => a - b).forEach(d => { colX.set(d, x); x += colW.get(d) + H_GAP; });
+        const W0 = colW.get(0) || 0;
+        for (const b of branches)
+            for (const i of b.bag) nodes[i].sideL = !!b.side;
+        for (const nd of nodes) {
+            nd.x = nd.sideL ? W0 - colX.get(nd.depth) - nd.w : colX.get(nd.depth);
+            nd.y = nd.yc - nd.h / 2;
+        }
+    }
+
     function layoutPositions(entities, relations, fromCurrent, mode = 'force') {
         const n = entities.length; if (!n) return new Map();
         /* sequência: participantes espalhados em linha, ordem de declaração */
@@ -693,11 +921,75 @@ export function mountEngine() {
             for (const e of entities) { out.set(e.name, { x: Math.round(x), y: 40 }); x += e.w + 100; }
             return out;
         }
+        /* mindmap: árvore clássica sempre — ocultos (ramos recolhidos) saem
+           do layout e recebem posição fora da área visível */
+        if (model.type === 'mindmap') {
+            const vis = entities.map((e, i) => ({ e, i })).filter(x => !x.e.hidden);
+            const idx = new Map(vis.map((x, k) => [x.e.name, k]));
+            const tn = vis.map(x => ({ w: x.e.w, h: x.e.h }));
+            const tl = [];
+            for (const r of relations) { const a = idx.get(r.a), b = idx.get(r.b); if (a != null && b != null && a !== b) tl.push([a, b]); }
+            mindTreeInto(tn, tl, tn.length);
+            vis.forEach((x, k) => { x.e.mmColor = tn[k].color; x.e.mmDepth = tn[k].depth; });
+            let mnX = Infinity, mnY = Infinity;
+            for (const nd of tn) { mnX = Math.min(mnX, nd.x); mnY = Math.min(mnY, nd.y); }
+            const out = new Map();
+            vis.forEach((x, k) => out.set(x.e.name, {
+                x: Math.round((tn[k].x - mnX + 70) / 8) * 8,
+                y: Math.round((tn[k].y - mnY + 70) / 8) * 8
+            }));
+            return out;
+        }
+        /* pizza: fatias ao redor do centro (sempre re-layouta) */
+        if (model.type === 'pie') {
+            const out = new Map();
+            const title = entities.find(e => e.pieTitle);
+            const slices = entities.filter(e => !e.pieTitle);
+            const total = model.pieTotal || 1;
+            const R = clamp(110 + Math.sqrt(total) * 10, 150, 320);
+            if (title) out.set(title.name, { x: Math.round(-title.w / 2), y: Math.round(-R - 70 - title.h) });
+            const PAD = 16;
+            let a0 = -Math.PI / 2;
+            slices.forEach((s, i) => {
+                const frac = s.value / total, a1 = a0 + frac * Math.PI * 2;
+                s.frac = frac; s.pieCls = 'pie-c' + (i % 8);
+                s.midA = (a0 + a1) / 2;
+                /* caminho em coords centradas no eixo da pizza */
+                const x0 = Math.cos(a0) * R, y0 = Math.sin(a0) * R, x1 = Math.cos(a1) * R, y1 = Math.sin(a1) * R;
+                if (frac >= 0.9999) {
+                    s.slicePath = `M0 ${-R} A${R} ${R} 0 1 1 0 ${R} A${R} ${R} 0 1 1 0 ${-R} Z`;
+                    s.mnX = -R; s.mnY = -R; s.mxX = R; s.mxY = R;
+                } else {
+                    s.slicePath = `M0 0 L${x0.toFixed(2)} ${y0.toFixed(2)} A${R} ${R} 0 ${frac > 0.5 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`;
+                    let mnX = 0, mnY = 0, mxX = 0, mxY = 0;
+                    const consider = (x, y) => { mnX = Math.min(mnX, x); mxX = Math.max(mxX, x); mnY = Math.min(mnY, y); mxY = Math.max(mxY, y); };
+                    consider(x0, y0); consider(x1, y1);
+                    for (let k = 0; k < 4; k++) {
+                        const ak = -Math.PI / 2 + k * Math.PI / 2;
+                        if (((ak - a0 + Math.PI * 2) % (Math.PI * 2)) <= a1 - a0)
+                            consider(Math.cos(ak) * R, Math.sin(ak) * R);
+                    }
+                    s.mnX = mnX; s.mnY = mnY; s.mxX = mxX; s.mxY = mxY;
+                }
+                s.ox = PAD - s.mnX; s.oy = PAD - s.mnY;
+                s.w = Math.round(s.mxX - s.mnX + PAD * 2);
+                s.h = Math.round(s.mxY - s.mnY + PAD * 2);
+                s.lx = Math.cos(s.midA) * R * 0.62 + s.ox;
+                s.ly = Math.sin(s.midA) * R * 0.62 + s.oy;
+                out.set(s.name, { x: Math.round(s.mnX - PAD), y: Math.round(s.mnY - PAD) });
+                a0 = a1;
+            });
+            return out;
+        }
         const map = new Map(entities.map((e, i) => [e.name, i]));
         const nodes = entities.map(e => ({ x: e.x ?? 0, y: e.y ?? 0, w: e.w, h: e.h }));
         const links = [];
         for (const r of relations) { const i = map.get(r.a), j = map.get(r.b); if (i != null && j != null && i !== j) links.push([i, j]); }
-        if (mode === 'layered') {
+        if (model.type === 'mindmap') {
+            /* árvore clássica sempre — independe do modo selecionado */
+            mindTreeInto(nodes, links, n);
+            entities.forEach((e, i) => { e.mmColor = nodes[i].color; e.mmDepth = nodes[i].depth; });
+        } else if (mode === 'layered') {
             /* hierárquico já sai separado e alinhado do layeredInto;
                resolveOverlaps/edgeClearagem globais só desalinham as famílias */
             layeredInto(nodes, links, n, GAP_X + 60, GAP_Y + 80);
@@ -721,10 +1013,25 @@ export function mountEngine() {
     /* ══════════ 06-tables.js ══════════ */
     /* ══════════ construção das tabelas ══════════ */
     let model = { entities: [], relations: [] }, byId = {}, adj = {}, edgeNodes = [], positions = {};
+    const mmCollapsed = new Set(); /* ramos do mindmap recolhidos (por nome do nó) */
+
+    /* visibilidade do mindmap: nó oculto se algum ancestral estiver recolhido */
+    function mmHiddenState() {
+        const parent = {};
+        for (const r of model.relations) parent[r.b] = r.a;
+        for (const e of model.entities) {
+            let p = parent[e.name], hid = false, guard = 0;
+            while (p && guard++ < 100) { if (mmCollapsed.has(p)) { hid = true; break; } p = parent[p]; }
+            e.hidden = hid;
+            e.hasKids = model.relations.some(r => r.a === e.name);
+            e.collapsed = mmCollapsed.has(e.name);
+        }
+    }
     let hoverId = null, selectedId = null, animating = false, previewMode = false;
 
     function buildTableNode(ent, animate, idx) {
         const g = svgEl('g', { class: 'table' }); g.dataset.id = ent.name;
+        if (model.type === 'mindmap') g.classList.add('mm-click');
         const inner = svgEl('g', { class: 't-inner' });
         if (animate) { inner.classList.add('enter'); inner.style.animationDelay = (80 + idx * 32) + 'ms'; }
         g.append(inner); renderTableContent(ent, inner);
@@ -737,6 +1044,36 @@ export function mountEngine() {
     }
 
     const SEQ_TOP = 118, SEQ_STEP = 46;
+
+    function renderMindNode(ent, inner) {
+        const { w, h, shape } = ent, lbl = ent.label ?? ent.name;
+        const root = ent.mmColor == null || ent.mmColor === -1;
+        const depth = Math.max(1, ent.mmDepth || 1);
+        /* a cor muda a cada nível dentro do ramo (matiz desloca com a profundidade) */
+        const cls = root ? 'mm-root' : 'mm-c' + ((ent.mmColor + depth - 1) % 8);
+        const depthCls = root ? '' : ' mm-d' + Math.min(3, depth);
+        if (shape === 'diamond')
+            inner.append(svgEl('polygon', { points: `${w / 2},2 ${w - 2},${h / 2} ${w / 2},${h - 2} 2,${h / 2}`, class: 't-main ' + cls + depthCls }));
+        else
+            inner.append(svgEl('rect', { x: 0, y: 0, width: w, height: h, rx: shape === 'stadium' ? h / 2 : 10, class: 't-main ' + cls + depthCls }));
+        const t = svgEl('text', { x: w / 2, y: h / 2 + 4.5, 'text-anchor': 'middle', class: 't-name' + (root ? ' mm-root-t' : '') });
+        t.textContent = lbl; inner.append(t);
+        /* selo de recolher/expandir ramos (só o selo alterna — clique no nó não recolhe) */
+        if (ent.hasKids) {
+            const c = svgEl('circle', { cx: w, cy: 0, r: 8, class: 'mm-tgl' });
+            c.addEventListener('pointerdown', e => {
+                e.stopPropagation();
+                if (model.type !== 'mindmap') return;
+                if (mmCollapsed.has(ent.name)) mmCollapsed.delete(ent.name);
+                else mmCollapsed.add(ent.name);
+                applySource(src.value, { resetLayout: true, mode: layoutSel.value });
+            });
+            inner.append(c);
+            const tt = svgEl('text', { x: w, y: 3.5, 'text-anchor': 'middle', class: 'mm-tgl-t' });
+            tt.textContent = ent.collapsed ? '+' : '−';
+            inner.append(tt);
+        }
+    }
 
     function renderFlowNode(ent, inner) {
         const { w, h, shape } = ent, lbl = ent.label ?? ent.name;
@@ -756,8 +1093,46 @@ export function mountEngine() {
         t.textContent = lbl; inner.append(t);
     }
 
+    function renderC4Node(ent, inner) {
+        const { w, h, ext } = ent;
+        const stadium = ent.stereo === 'person';
+        inner.append(svgEl('rect', { x: 0, y: 0, width: w, height: h, rx: stadium ? h / 2 : 10, class: 't-main' + (ext ? ' c4-ext' : '') }));
+        inner.append(svgEl('rect', { x: stadium ? h / 2 - 14 : 12, y: 0, width: stadium ? 28 : w - 24, height: 4, rx: 2, class: 'c4-bar c4-' + ent.stereo }));
+        const t = svgEl('text', { x: w / 2, y: 27, 'text-anchor': 'middle', class: 't-title' });
+        t.textContent = ent.label; inner.append(t);
+        if (ent.sub) {
+            const s = svgEl('text', { x: w / 2, y: 45, 'text-anchor': 'middle', class: 'c4-sub' });
+            s.textContent = ent.sub; inner.append(s);
+        }
+        const TAGS = { person: 'pessoa', system: 'sistema', db: 'banco', queue: 'fila', container: 'container', component: 'componente' };
+        const tag = svgEl('text', { x: w - 12, y: h - 7, 'text-anchor': 'end', class: 'c4-tag' });
+        tag.textContent = TAGS[ent.stereo] + (ext ? ' · externo' : ''); inner.append(tag);
+    }
+
+    function renderPieSlice(ent, inner) {
+        if (ent.pieTitle) {
+            const t = svgEl('text', { x: ent.w / 2, y: 22, 'text-anchor': 'middle', class: 'pie-title' });
+            t.textContent = ent.label; inner.append(t);
+            inner.append(svgEl('rect', { x: 0, y: 0, width: ent.w, height: ent.h, class: 't-hit' }));
+            return;
+        }
+        const g = svgEl('g', { transform: `translate(${ent.ox} ${ent.oy})` });
+        const p = svgEl('path', { d: ent.slicePath, class: 'pie-slice ' + ent.pieCls });
+        const ti = document.createElementNS(NS, 'title');
+        ti.textContent = `${ent.label}: ${ent.value} (${Math.round(ent.frac * 100)}%)`;
+        p.append(ti);
+        g.append(p);
+        const pct = svgEl('text', { x: ent.lx, y: ent.ly + 4, 'text-anchor': 'middle', class: 'pie-pct' });
+        pct.textContent = (ent.frac * 100).toFixed(ent.frac * 100 >= 9.95 ? 0 : 1) + '%';
+        g.append(pct);
+        inner.append(g);
+    }
+
     function renderTableContent(ent, inner) {
+        if (model.type === 'pie') return renderPieSlice(ent, inner);
+        if (model.type === 'c4') return renderC4Node(ent, inner);
         if (model.type === 'flow') return renderFlowNode(ent, inner);
+        if (model.type === 'mindmap') return renderMindNode(ent, inner);
         if (model.type === 'seq') return renderSeqNode(ent, inner);
         inner.textContent = '';
         inner.append(svgEl('rect', { class: 't-main', x: 0, y: 0, width: ent.w, height: ent.h, rx: 10 }));
@@ -857,9 +1232,8 @@ export function mountEngine() {
             const self = rel.a === rel.b;
             /* linha: camada de baixo */
             const g = svgEl('g', { class: 'edge' + (rel.dash ? ' dash' : '') });
-            const line = svgEl('path', { class: 'e-line' });
+            const line = svgEl('path', { class: 'e-line' + (rel.mm ? ' mm-line' : '') });
             g.append(line); gEdges.append(g);
-            /* símbolos + selos + rótulo: camada de cima (nunca atrás das tabelas) */
             const ma = rel.simple ? simpleMarker(rel.aMk) : crowMarker(rel.ac);
             const mb = rel.simple ? simpleMarker(rel.bMk) : crowMarker(rel.bc);
             const ba = rel.simple ? svgEl('g') : cardBadge(CARD_TEXT[rel.ac], `cada ${rel.b} se liga a ${CARD_PHRASE[rel.ac]} ${rel.a}`);
@@ -953,6 +1327,11 @@ export function mountEngine() {
                 /* laço: sai e volta pela mesma face da entidade */
                 A = { x: a.x + a.w, y: a.y + a.h * 0.32, dx: 1, dy: 0 };
                 B = { x: a.x + a.w, y: a.y + a.h * 0.68, dx: 1, dy: 0 };
+            } else if (E.rel.mm) {
+                /* galho do mindmap: bezier horizontal, contorna sem roteamento */
+                const A0 = anchor(a, b), B0 = anchor(b, a);
+                E.mmCurve = [A0, B0];
+                continue;
             } else {
                 A = anchor(a, b); B = anchor(b, a);
             }
@@ -1088,7 +1467,7 @@ export function mountEngine() {
             it.pA = spread(it.A, it.a, it.aOff);
             it.pB = spread(it.B, it.b, it.bOff);
             const { pA, pB } = it;
-            if (it.E.self || it.E.seq) continue;
+            if (it.E.self || it.E.seq || it.E.rel.mm) continue;
             if (pA.dx !== 0 && pB.dx !== 0)
                 it.chan = routeHVH(pA, pB, it.a, it.b);
             else if (pA.dy !== 0 && pB.dy !== 0)
@@ -1237,6 +1616,19 @@ export function mountEngine() {
                 E.bb.setAttribute('transform', `translate(${B.x + B.dx * bo + B.dy * po} ${B.y + B.dy * bo - B.dx * po}) scale(${ms})`);
             }
         }
+        /* pass 3: galhos curvos do mindmap (fora do fluxo de roteamento) */
+        for (const E of edgeNodes) {
+            if (!E.rel || !E.rel.mm || !E.mmCurve) continue;
+            const [A0, B0] = E.mmCurve;
+            const k = clamp(Math.abs(B0.x - A0.x) * 0.45, 30, 120);
+            E.line.setAttribute('d', `M${A0.x} ${A0.y} C${A0.x + A0.dx * k} ${A0.y} ${B0.x - A0.dx * k} ${B0.y} ${B0.x} ${B0.y}`);
+            E.lg.setAttribute('transform', `translate(${(A0.x + B0.x) / 2} ${(A0.y + B0.y) / 2})`);
+            E.lr.setAttribute('x', -E.lw / 2); E.lr.setAttribute('y', -9); E.lt.setAttribute('y', 3.5);
+            E.ma.setAttribute('transform', `translate(${A0.x} ${A0.y}) rotate(${Math.atan2(A0.dy, A0.dx) * 180 / Math.PI}) scale(${ms})`);
+            E.mb.setAttribute('transform', `translate(${B0.x} ${B0.y}) rotate(${Math.atan2(B0.dy, B0.dx) * 180 / Math.PI}) scale(${ms})`);
+            E.ba.setAttribute('transform', `translate(${A0.x + A0.dx * bo} ${A0.y + A0.dy * bo}) scale(${ms})`);
+            E.bb.setAttribute('transform', `translate(${B0.x + B0.dx * bo} ${B0.y + B0.dy * bo}) scale(${ms})`);
+        }
     }
 
     function buildAdj() {
@@ -1305,6 +1697,7 @@ export function mountEngine() {
         if (!model.entities.length) return null;
         let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
         for (const e of model.entities) {
+            if (e.hidden) continue;
             x1 = Math.min(x1, e.x); y1 = Math.min(y1, e.y);
             x2 = Math.max(x2, e.x + e.w); y2 = Math.max(y2, e.y + e.h);
         }
@@ -1504,6 +1897,7 @@ export function mountEngine() {
         mmState = { s, ox, oy, rx, ry };
         mmContent.textContent = '';
         for (const e of model.entities) {
+            if (e.hidden) continue;
             mmContent.append(svgEl('rect', {
                 x: ox + (e.x - rx) * s, y: oy + (e.y - ry) * s,
                 width: Math.max(3, e.w * s), height: Math.max(2.4, e.h * s), rx: 2,
@@ -1553,7 +1947,7 @@ export function mountEngine() {
             const line = raw.replace(/;\s*$/, ''), t = line.trim();
             let h = null, m;
             if (t.startsWith('%%')) h = `<span class="c-cm">${esc(line)}</span>`;
-            else if (/^erDiagram\b/.test(t)) h = `<span class="c-kw">${esc(line)}</span>`;
+            else if (/^(erDiagram|pieDiagram|mindmap|C4Context|C4Container|C4Component|C4Dynamic|C4Deployment)\b/.test(t)) h = `<span class="c-kw">${esc(line)}</span>`;
             else if (m = line.match(REL_HL))
                 h = `${esc(m[1])}<span class="c-en">${esc(m[2])}</span><span class="c-card">${esc(m[3])}</span><span class="c-card">${esc(m[4])}</span><span class="c-card">${esc(m[5])}</span><span class="c-en">${esc(m[6])}</span><span class="c-col">${esc(m[7])}</span><span class="c-lb">${esc(m[8])}</span>`;
             else if (m = line.match(OPEN_HL)) { h = `${esc(m[1])}<span class="c-en">${esc(m[2])}</span><span class="c-br">${esc(m[3])}</span>`; inBlock = true; }
@@ -1627,14 +2021,18 @@ export function mountEngine() {
         if (res.errors.length) { setParseState(res.errors); return false; }
         setParseState(null, res);
         model = res;
-        for (const e of model.entities) measureEntity(e);
+        if (model.type === 'mindmap') mmHiddenState();
+        for (const e of model.entities) if (!e.hidden) measureEntity(e);
         if (model.type === 'seq') {
             model.seqBottom = SEQ_TOP + Math.max(1, model.relations.length) * SEQ_STEP + 36;
             resetLayout = true; /* sequência sempre re-layouta (posição linear) */
         }
+        if (model.type === 'pie') resetLayout = true; /* pizza sempre re-layouta (geometria circular) */
+        if (model.type === 'mindmap') resetLayout = true; /* mindmap sempre re-layouta (árvore arrumada) */
         if (resetLayout) {
             const map = layoutPositions(model.entities, model.relations, false, mode);
-            for (const e of model.entities) { const p = map.get(e.name); e.x = p.x; e.y = p.y; }
+            /* nós ocultos (ramos recolhidos) não entram no layout: mantêm a posição antiga */
+            for (const e of model.entities) { const p = map.get(e.name); if (p) { e.x = p.x; e.y = p.y; } }
         } else {
             placeNear.n = 0; let anyNew = false;
             for (const e of model.entities) {
@@ -1644,7 +2042,7 @@ export function mountEngine() {
             if (anyNew) resolveOverlaps(model.entities, 40);
         }
         gTables.textContent = ''; byId = {};
-        model.entities.forEach((e, i) => { byId[e.name] = e; gTables.append(buildTableNode(e, animate, i)); });
+        model.entities.forEach((e, i) => { if (e.hidden) return; byId[e.name] = e; gTables.append(buildTableNode(e, animate, i)); });
         for (const k of Object.keys(positions)) if (!byId[k]) delete positions[k];
         for (const e of model.entities) positions[e.name] = { x: e.x, y: e.y };
         store.set('pos', JSON.stringify(positions)); store.set('code', code);
@@ -1680,8 +2078,14 @@ export function mountEngine() {
         animateTo(targets, 650, () => { savePositions(); fitView(true); });
     }
     function updateStats() {
-        const fields = model.entities.reduce((s, e) => s + e.attrs.length, 0);
-        statsEl.textContent = `${model.entities.length} entidades · ${edgeNodes.length} relações · ${fields} campos`;
+        if (model.type === 'pie') {
+            const n = model.entities.filter(e => !e.pieTitle).length;
+            statsEl.textContent = `${n} fatias · total ${model.pieTotal}`;
+            return;
+        }
+        const vis = model.entities.filter(e => !e.hidden);
+        const fields = vis.reduce((s, e) => s + e.attrs.length, 0);
+        statsEl.textContent = `${vis.length} entidades · ${edgeNodes.length} relações · ${fields} campos`;
     }
     function setParseState(errors, res) {
         if (errors && errors.length) {
@@ -1714,7 +2118,7 @@ export function mountEngine() {
         } catch (e) { _fontCSS = ''; }
         return _fontCSS;
     }
-    const THEME_VARS = ['--surface', '--surface2', '--canvas', '--ink', '--ink2', '--ink3', '--line', '--line2', '--edge', '--accent', '--pkbg', '--pkln', '--pkfg', '--mono', '--sans'];
+    const THEME_VARS = ['--surface', '--surface2', '--canvas', '--ink', '--ink2', '--ink3', '--line', '--line2', '--edge', '--accent', '--pkbg', '--pkln', '--pkfg', '--mono', '--sans', '--pie-txt'];
     async function buildExportSVG() {
         const bb = contentBBox(); if (!bb) return null;
         const pad = 56, W = Math.round(bb.w + pad * 2), H = Math.round(bb.h + pad * 2);
@@ -2277,7 +2681,16 @@ export function mountEngine() {
     $('btnFit').onclick = () => fitView(true);
     zoomLbl.onclick = resetZoom;
     /* selecionar tipo → começa um diagrama em branco daquele tipo */
-    const BLANK_HDR = { er: 'erDiagram\n', flow: 'flowchart TD\n', seq: 'sequenceDiagram\n', class: 'classDiagram\n' };
+    /* selecionar tipo → começa um diagrama de exemplo daquele tipo */
+    const BLANK_HDR = {
+        er: 'erDiagram\n    USUARIO ||--o{ PEDIDO : realiza\n\n    USUARIO {\n        int id PK\n        string nome\n    }\n    PEDIDO {\n        int id PK\n        int usuario_id FK\n    }',
+        flow: 'flowchart TD\n    Inicio[Começo] --> Decisão{Tudo certo?}\n    Decisão -->|sim| Fim[Resultado]\n    Decisão -.->|não| Inicio',
+        seq: 'sequenceDiagram\n    participant U as Usuário\n    participant S as Servidor\n    U ->> S: requisição\n    S -->> U: resposta',
+        class: 'classDiagram\n    Animal <|-- Cachorro\n    Animal : +nome\n    Animal : +emitirSom()\n    class Cachorro {\n        +latir()\n    }',
+        pie: 'pieDiagram\n    title Exemplo\n    "Vendas" : 40\n    "Suporte" : 25\n    "Infra" : 15',
+        mindmap: 'mindmap\n    root((Tema))\n        Ramo A\n            Folha\n        Ramo B',
+        c4: 'C4Context\n    title Exemplo\n    Person(user, "Cliente", "Usa o sistema")\n    System(app, "Aplicação", "Core do produto")\n    SystemDb(db, "Banco", "PostgreSQL")\n    Rel(user, app, "Usa", "HTTPS")\n    Rel(app, db, "Persiste", "SQL")'
+    };
     $('typeSel').onchange = e => {
         const t = e.target.value;
         if (!t || !BLANK_HDR[t]) return;
@@ -2286,7 +2699,7 @@ export function mountEngine() {
         renderHighlight(); updateGutter();
         applySource(src.value, { resetLayout: true, mode: layoutSel.value });
         fitView(true);
-        toast('Novo diagrama em branco — digite / no editor para snippets');
+        toast('Novo diagrama de exemplo — edite o código à vontade');
     };
     $('examples').onchange = e => {
         positions = {}; store.set('pos', '{}');

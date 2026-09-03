@@ -24,10 +24,13 @@ export default function EngineHost() {
                     <div className="select">
                         <select id="typeSel" aria-label="Tipo de diagrama para começar do zero">
                             <option value="">Tipo…</option>
-                            <option value="er">Novo · ER</option>
-                            <option value="flow">Novo · Flowchart</option>
-                            <option value="seq">Novo · Sequência</option>
-                            <option value="class">Novo · Classes</option>
+                            <option value="er">ER</option>
+                            <option value="flow">Flowchart</option>
+                            <option value="seq">Sequência</option>
+                            <option value="class">Classes</option>
+                            <option value="pie">Pizza</option>
+                            <option value="mindmap">Mindmap</option>
+                            <option value="c4">C4</option>
                         </select>
                         <span data-icon="chevD" data-size="14" />
                     </div>
@@ -37,6 +40,9 @@ export default function EngineHost() {
                             <option value="1">Fluxo de pedido</option>
                             <option value="2">Autenticação (seq.)</option>
                             <option value="3">Veículos (classes)</option>
+                            <option value="4">Distribuição de tempo (pizza)</option>
+                            <option value="5">Mapa mental</option>
+                            <option value="6">Contexto C4</option>
                         </select>
                         <span data-icon="chevD" data-size="14" />
                     </div>
@@ -139,14 +145,18 @@ export default function EngineHost() {
                     <button className="dt-tab" data-tab="flow" role="tab" aria-selected="false">Fluxo</button>
                     <button className="dt-tab" data-tab="seq" role="tab" aria-selected="false">Sequência</button>
                     <button className="dt-tab" data-tab="class" role="tab" aria-selected="false">Classes</button>
+                    <button className="dt-tab" data-tab="pie" role="tab" aria-selected="false">Pizza</button>
+                    <button className="dt-tab" data-tab="mindmap" role="tab" aria-selected="false">Mindmap</button>
+                    <button className="dt-tab" data-tab="c4" role="tab" aria-selected="false">C4</button>
                 </div>
                 <div className="docs-body">
 
                     <section data-tab="geral">
                         <h4>Como funciona</h4>
-                        <p>O Meridian entende <b>quatro tipos de diagrama</b> Mermaid. A primeira linha do código define o
-                            tipo: <code>erDiagram</code>, <code>flowchart</code>, <code>sequenceDiagram</code> ou
-                            <code>classDiagram</code>. Use o seletor <b>“Tipo…”</b> no topo para começar um esqueleto em branco.</p>
+                        <p>O Meridian entende <b>sete tipos de diagrama</b> Mermaid. A primeira linha do código define o
+                            tipo: <code>erDiagram</code>, <code>flowchart</code>, <code>sequenceDiagram</code>,
+                            <code>classDiagram</code>, <code>pieDiagram</code>, <code>mindmap</code> ou
+                            <code>C4Context</code>. Use o seletor <b>“Tipo…”</b> no topo para começar com um exemplo de partida de cada tipo.</p>
                     </section>
 
                     <section data-tab="er">
@@ -247,6 +257,34 @@ export default function EngineHost() {
                             dependência e <code>..</code> ligação tracejada. Blocos <code>{'{'} …{'}'}</code> listam os
                             membros (uma linha por membro).</p>
                         <pre className="d-code" dangerouslySetInnerHTML={{ __html: "<span className=\"kw\">classDiagram</span>\n        Veiculo &lt;|-- Carro\n        Veiculo *-- Motor\n\n        class Carro {\n            +int portas\n            +abrirPortaMalas()\n        }" }}></pre>
+                    </section>
+
+                    <section data-tab="pie">
+                        <h4>Diagrama de pizza</h4>
+                        <p>Com <code>pieDiagram</code>, cada fatia é uma linha <code>"Rótulo" : valor</code>. A porcentagem
+                            aparece dentro da fatia; passe o mouse para ver o valor bruto. Título opcional com
+                            <code>title …</code>.</p>
+                        <pre className="d-code" dangerouslySetInnerHTML={{ __html: "<span className=\"kw\">pieDiagram</span>\n        title Meu título\n        \"Vendas\" : 40\n        \"Suporte\" : 25\n        \"Infra\" : 15" }}></pre>
+                    </section>
+
+                    <section data-tab="mindmap">
+                        <h4>Mapa mental</h4>
+                        <p>Com <code>mindmap</code>, a hierarquia é definida pela <b>indentação</b> (2 espaços por nível).
+                            Os ramos saem alternando os lados da raiz, sem cruzar, com curvas e uma <b>cor por ramo que
+                            muda a cada nível</b>. Linhas <code>::icon(…)</code> são ignoradas. <b>Clique num nó</b> (no
+                            selo +/−) para recolher ou expandir o ramo dele.</p>
+                        <pre className="d-code" dangerouslySetInnerHTML={{ __html: "<span className=\"kw\">mindmap</span>\n        root((Tema))\n            Ramo A\n                Folha\n            Ramo B" }}></pre>
+                    </section>
+
+                    <section data-tab="c4">
+                        <h4>Modelo C4</h4>
+                        <p>Com <code>C4Context</code> (ou <code>C4Container</code>, <code>C4Component</code>,
+                            <code>C4Dynamic</code>), declare atores e sistemas: <code>Person(id, "Nome", "descrição")</code>,
+                            <code>System(id, "Nome", "descrição")</code>, <code>SystemDb</code>, <code>SystemQueue</code>,
+                            <code>Container(id, "Nome", "tech", "descrição")</code>, <code>Component</code>. O sufixo
+                            <code>_Ext</code> marca elementos externos (borda tracejada). Relações:
+                            <code>Rel(a, b, "descrição", "tecnologia")</code>.</p>
+                        <pre className="d-code" dangerouslySetInnerHTML={{ __html: "<span className=\"kw\">C4Context</span>\n        Person(user, \"Cliente\", \"Usa o app\")\n        System(app, \"Aplicação\", \"Core do produto\")\n        SystemDb(db, \"Banco\", \"PostgreSQL\")\n        Rel(user, app, \"Usa\", \"HTTPS\")\n        Rel(app, db, \"Persiste\", \"SQL\")" }}></pre>
                     </section>
 
                     <section data-tab="geral">
