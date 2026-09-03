@@ -2,6 +2,8 @@
 // Organizado em blocos marcados com /* ══════════ NN-nome ══════════ */ — edite aqui mesmo.
 
 import { parseMermaid } from './parser';
+import { F, tw } from './measure';
+import { mountTables } from '../components/diagram/Scene';
 import { highlightMermaid } from './highlight';
 import { buildFormatted } from './formatter';
 import { EXAMPLES } from './examples';
@@ -36,18 +38,7 @@ export function mountEngine() {
 
     /* ══════════ 04-measure.js ══════════ */
     /* ══════════ medidas das tabelas ══════════ */
-    const mctx = document.createElement('canvas').getContext('2d');
-    const F = {
-        name: '500 12px "JetBrains Mono", ui-monospace, monospace',
-        type: '400 11px "JetBrains Mono", ui-monospace, monospace',
-        key: '700 8.5px "JetBrains Mono", ui-monospace, monospace',
-        title: '600 12px "Space Grotesk", sans-serif',
-        count: '600 9px "JetBrains Mono", ui-monospace, monospace',
-        label: '500 10px "JetBrains Mono", ui-monospace, monospace',
-        card: '600 9.5px "JetBrains Mono", ui-monospace, monospace',
-        comment: 'italic 400 11px "JetBrains Mono", ui-monospace, monospace'
-    };
-    function tw(t, font) { mctx.font = font; return mctx.measureText(t).width; }
+
 
     function measureEntity(e) {
         if (model.type === 'pie') {
@@ -538,10 +529,32 @@ export function mountEngine() {
 
 
     /* ══════════ 06-tables.js ══════════ */
-    /* ══════════ construção das tabelas ══════════ */
+    /* ══════════ cena React: nós declarativos + delegação de interação ══════════ */
     let model = { entities: [], relations: [] }, byId = {}, adj = {}, edgeNodes = [], positions = {};
+    const SEQ_TOP = 118, SEQ_STEP = 46;
     const mmCollapsed = new Set(); /* ramos do mindmap recolhidos (por nome do nó) */
 
+    const tables = mountTables(gTables);
+    function mmToggle(name) {
+        if (mmCollapsed.has(name)) mmCollapsed.delete(name);
+        else mmCollapsed.add(name);
+        applySource(src.value, { resetLayout: true, mode: layoutSel.value });
+    }
+    function renderTables(animate) {
+        tables.render({
+            type: model.type,
+            entities: model.entities.filter(e => !e.hidden),
+            animate,
+            onToggle: mmToggle,
+        });
+        refreshRefs();
+    }
+    function refreshRefs() {
+        gTables.querySelectorAll('g.table').forEach(g => {
+            const e = byId[g.dataset.id];
+            if (e) { e.g = g; e.inner = g.firstChild; }
+        });
+    }
     /* visibilidade do mindmap: nó oculto se algum ancestral estiver recolhido */
     function mmHiddenState() {
         const parent = {};
@@ -556,149 +569,21 @@ export function mountEngine() {
     }
     let hoverId = null, selectedId = null, animating = false, previewMode = false;
 
-    function buildTableNode(ent, animate, idx) {
-        const g = svgEl('g', { class: 'table' }); g.dataset.id = ent.name;
-        if (model.type === 'mindmap') g.classList.add('mm-click');
-        const inner = svgEl('g', { class: 't-inner' });
-        if (animate) { inner.classList.add('enter'); inner.style.animationDelay = (80 + idx * 32) + 'ms'; }
-        g.append(inner); renderTableContent(ent, inner);
-        g.setAttribute('transform', `translate(${ent.x} ${ent.y})`);
-        g.addEventListener('pointerdown', e => onTableDown(e, ent));
-        g.addEventListener('pointerenter', () => { hoverId = ent.name; updateFocus(); });
-        g.addEventListener('pointerleave', () => { hoverId = null; updateFocus(); });
-        ent.g = g; ent.inner = inner;
-        return g;
-    }
-
-    const SEQ_TOP = 118, SEQ_STEP = 46;
-
-    function renderMindNode(ent, inner) {
-        const { w, h, shape } = ent, lbl = ent.label ?? ent.name;
-        const root = ent.mmColor == null || ent.mmColor === -1;
-        const depth = Math.max(1, ent.mmDepth || 1);
-        /* a cor muda a cada nível dentro do ramo (matiz desloca com a profundidade) */
-        const cls = root ? 'mm-root' : 'mm-c' + ((ent.mmColor + depth - 1) % 8);
-        const depthCls = root ? '' : ' mm-d' + Math.min(3, depth);
-        if (shape === 'diamond')
-            inner.append(svgEl('polygon', { points: `${w / 2},2 ${w - 2},${h / 2} ${w / 2},${h - 2} 2,${h / 2}`, class: 't-main ' + cls + depthCls }));
-        else
-            inner.append(svgEl('rect', { x: 0, y: 0, width: w, height: h, rx: shape === 'stadium' ? h / 2 : 10, class: 't-main ' + cls + depthCls }));
-        const t = svgEl('text', { x: w / 2, y: h / 2 + 4.5, 'text-anchor': 'middle', class: 't-name' + (root ? ' mm-root-t' : '') });
-        t.textContent = lbl; inner.append(t);
-        /* selo de recolher/expandir ramos (só o selo alterna — clique no nó não recolhe) */
-        if (ent.hasKids) {
-            const c = svgEl('circle', { cx: w, cy: 0, r: 8, class: 'mm-tgl' });
-            c.addEventListener('pointerdown', e => {
-                e.stopPropagation();
-                if (model.type !== 'mindmap') return;
-                if (mmCollapsed.has(ent.name)) mmCollapsed.delete(ent.name);
-                else mmCollapsed.add(ent.name);
-                applySource(src.value, { resetLayout: true, mode: layoutSel.value });
-            });
-            inner.append(c);
-            const tt = svgEl('text', { x: w, y: 3.5, 'text-anchor': 'middle', class: 'mm-tgl-t' });
-            tt.textContent = ent.collapsed ? '+' : '−';
-            inner.append(tt);
-        }
-    }
-
-    function renderFlowNode(ent, inner) {
-        const { w, h, shape } = ent, lbl = ent.label ?? ent.name;
-        if (shape === 'diamond')
-            inner.append(svgEl('polygon', { points: `${w / 2},2 ${w - 2},${h / 2} ${w / 2},${h - 2} 2,${h / 2}`, class: 't-main' }));
-        else
-            inner.append(svgEl('rect', { x: 0, y: 0, width: w, height: h, rx: shape === 'stadium' ? h / 2 : 10, class: 't-main' }));
-        const t = svgEl('text', { x: w / 2, y: h / 2 + 4.5, 'text-anchor': 'middle', class: 't-name' });
-        t.textContent = lbl; inner.append(t);
-    }
-
-    function renderSeqNode(ent, inner) {
-        const { w, h } = ent, lbl = ent.label ?? ent.name;
-        inner.append(svgEl('rect', { x: 0, y: 0, width: w, height: h, rx: 10, class: 't-main' }));
-        inner.append(svgEl('rect', { x: 0, y: 0, width: w, height: h, rx: 10, class: 't-headbg', opacity: .5 }));
-        const t = svgEl('text', { x: w / 2, y: h / 2 + 4.5, 'text-anchor': 'middle', class: 't-title' });
-        t.textContent = lbl; inner.append(t);
-    }
-
-    function renderC4Node(ent, inner) {
-        const { w, h, ext } = ent;
-        const stadium = ent.stereo === 'person';
-        inner.append(svgEl('rect', { x: 0, y: 0, width: w, height: h, rx: stadium ? h / 2 : 10, class: 't-main' + (ext ? ' c4-ext' : '') }));
-        inner.append(svgEl('rect', { x: stadium ? h / 2 - 14 : 12, y: 0, width: stadium ? 28 : w - 24, height: 4, rx: 2, class: 'c4-bar c4-' + ent.stereo }));
-        const t = svgEl('text', { x: w / 2, y: 27, 'text-anchor': 'middle', class: 't-title' });
-        t.textContent = ent.label; inner.append(t);
-        if (ent.sub) {
-            const s = svgEl('text', { x: w / 2, y: 45, 'text-anchor': 'middle', class: 'c4-sub' });
-            s.textContent = ent.sub; inner.append(s);
-        }
-        const TAGS = { person: 'pessoa', system: 'sistema', db: 'banco', queue: 'fila', container: 'container', component: 'componente' };
-        const tag = svgEl('text', { x: w - 12, y: h - 7, 'text-anchor': 'end', class: 'c4-tag' });
-        tag.textContent = TAGS[ent.stereo] + (ext ? ' · externo' : ''); inner.append(tag);
-    }
-
-    function renderPieSlice(ent, inner) {
-        if (ent.pieTitle) {
-            const t = svgEl('text', { x: ent.w / 2, y: 22, 'text-anchor': 'middle', class: 'pie-title' });
-            t.textContent = ent.label; inner.append(t);
-            inner.append(svgEl('rect', { x: 0, y: 0, width: ent.w, height: ent.h, class: 't-hit' }));
-            return;
-        }
-        const g = svgEl('g', { transform: `translate(${ent.ox} ${ent.oy})` });
-        const p = svgEl('path', { d: ent.slicePath, class: 'pie-slice ' + ent.pieCls });
-        const ti = document.createElementNS(NS, 'title');
-        ti.textContent = `${ent.label}: ${ent.value} (${Math.round(ent.frac * 100)}%)`;
-        p.append(ti);
-        g.append(p);
-        const pct = svgEl('text', { x: ent.lx, y: ent.ly + 4, 'text-anchor': 'middle', class: 'pie-pct' });
-        pct.textContent = (ent.frac * 100).toFixed(ent.frac * 100 >= 9.95 ? 0 : 1) + '%';
-        g.append(pct);
-        inner.append(g);
-    }
-
-    function renderTableContent(ent, inner) {
-        if (model.type === 'pie') return renderPieSlice(ent, inner);
-        if (model.type === 'c4') return renderC4Node(ent, inner);
-        if (model.type === 'flow') return renderFlowNode(ent, inner);
-        if (model.type === 'mindmap') return renderMindNode(ent, inner);
-        if (model.type === 'seq') return renderSeqNode(ent, inner);
-        inner.textContent = '';
-        inner.append(svgEl('rect', { class: 't-main', x: 0, y: 0, width: ent.w, height: ent.h, rx: 10 }));
-        inner.append(svgEl('rect', { class: 't-headbg', x: .5, y: .5, width: ent.w - 1, height: 39.5, rx: 9.5 }));
-        inner.append(svgEl('rect', { class: 't-headbg', x: .5, y: 26, width: ent.w - 1, height: 14 }));
-        const title = svgEl('text', { class: 't-title', x: 14, y: 25 }); title.textContent = ent.name.toUpperCase();
-        inner.append(title);
-        const cw = tw(String(ent.attrs.length), F.count) + 12;
-        inner.append(svgEl('rect', { class: 't-count-bg', x: ent.w - 14 - cw, y: 12, width: cw, height: 16, rx: 8 }));
-        const cnt = svgEl('text', { class: 't-count', x: ent.w - 14 - cw / 2, y: 23, 'text-anchor': 'middle' });
-        cnt.textContent = ent.attrs.length; inner.append(cnt);
-        inner.append(svgEl('path', { class: 't-div', d: `M0 40H${ent.w}` }));
-        if (!ent.attrs.length) {
-            const t = svgEl('text', { class: 't-empty', x: 14, y: 40 + 17 }); t.textContent = '— sem campos definidos';
-            inner.append(t);
-        }
-        ent.attrs.forEach((a, i) => {
-            const yT = 40 + i * 26;
-            const name = svgEl('text', { class: 't-name', x: 14, y: yT + 17 }); name.textContent = a.name;
-            if (a.comment) { const ti = svgEl('title'); ti.textContent = a.comment; name.append(ti); }
-            inner.append(name);
-            let bx = 14 + tw(a.name, F.name) + 7;
-            for (const k of a.keys) {
-                const kw = tw(k, F.key) + 12;
-                inner.append(svgEl('rect', { class: 'badge b-' + k.toLowerCase(), x: bx, y: yT + 5.5, width: kw, height: 15, rx: 7.5 }));
-                const t = svgEl('text', { class: 'badge-t b-' + k.toLowerCase(), x: bx + kw / 2, y: yT + 16, 'text-anchor': 'middle' });
-                t.textContent = k; inner.append(t); bx += kw + 5;
-            }
-            const tx = ent.commentW ? ent.w - ent.commentW - 12 : ent.w - 14;
-            const ty = svgEl('text', { class: 't-type', x: tx, y: yT + 16, 'text-anchor': 'end' });
-            ty.textContent = a.type; inner.append(ty);
-            if (a.comment) {
-                const cm = svgEl('text', { class: 't-comment', x: ent.w - ent.commentW + 6, y: yT + 16, style: 'font: italic 400 11px var(--mono); fill: var(--ink3)' });
-                cm.textContent = a.comment; inner.append(cm);
-            }
-        });
-        inner.append(svgEl('rect', { class: 't-hit', x: 0, y: 0, width: ent.w, height: ent.h }));
-    }
-
+    /* delegação de eventos (drag/hover) — os nós são componentes React sem estado */
+    gTables.addEventListener('pointerdown', e => {
+        if (e.target.closest('.mm-tgl')) return; /* selo do mindmap tem handler próprio */
+        const g = e.target.closest('g.table');
+        const ent = g && byId[g.dataset.id];
+        if (ent) onTableDown(e, ent);
+    });
+    gTables.addEventListener('pointerover', e => {
+        const g = e.target.closest('g.table');
+        if (g && byId[g.dataset.id]) { hoverId = g.dataset.id; updateFocus(); }
+    });
+    gTables.addEventListener('pointerout', e => {
+        const g = e.target.closest('g.table');
+        if (g && g.dataset.id === hoverId) { hoverId = null; updateFocus(); }
+    });
 
     /* ══════════ 07-edges.js ══════════ */
     /* ══════════ arestas crow's foot (estilo mermaid) ══════════ */
@@ -1516,8 +1401,9 @@ export function mountEngine() {
             }
             if (anyNew) resolveOverlaps(model.entities, 40);
         }
-        gTables.textContent = ''; byId = {};
-        model.entities.forEach((e, i) => { if (e.hidden) return; byId[e.name] = e; gTables.append(buildTableNode(e, animate, i)); });
+        byId = {};
+        model.entities.forEach((e) => { if (!e.hidden) byId[e.name] = e; });
+        renderTables(animate);
         for (const k of Object.keys(positions)) if (!byId[k]) delete positions[k];
         for (const e of model.entities) positions[e.name] = { x: e.x, y: e.y };
         store.set('pos', JSON.stringify(positions)); store.set('code', code);
