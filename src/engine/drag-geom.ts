@@ -10,6 +10,9 @@ export interface Box {
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
+/** respiro padrão entre entidades (usado por pushOut/resolveOverlaps) */
+export const GAP_X = 156, GAP_Y = 145;
+
 export interface Snap {
     nx: number;
     ny: number;
@@ -65,7 +68,7 @@ export function snapMove(
 
 /** Empurra a entidade arrastada para fora de qualquer sobreposição
     (nunca termina o drag em cima de outra tabela). Mutante, como no legado. */
-export function pushOut(entities: Box[], ent: Box, gapX: number, gapY: number, maxIter = 60): void {
+export function pushOut(entities: Box[], ent: Box, gapX: number = GAP_X, gapY: number = GAP_Y, maxIter = 60): void {
     for (let rep = 0; rep < maxIter; rep++) {
         let overlapped = false;
         for (const o of entities) {
@@ -83,7 +86,7 @@ export function pushOut(entities: Box[], ent: Box, gapX: number, gapY: number, m
 }
 
 /** Separação par a par de todas as entidades (usado pelo layout e placeNear). */
-export function resolveOverlaps(nodes: Box[], iters: number, gx = 156, gy = 145): void {
+export function resolveOverlaps(nodes: Box[], iters: number, gx = GAP_X, gy = GAP_Y): void {
     for (let it = 0; it < iters; it++) {
         let any = false;
         for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {

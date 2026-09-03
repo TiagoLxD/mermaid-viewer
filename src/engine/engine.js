@@ -5,7 +5,7 @@ import { parseMermaid } from './parser';
 import { F, tw } from './measure';
 import { mountTables, mountEdgeLines, mountEdgeOverlays } from '../components/diagram/Scene';
 import { computeEdges } from './edges-geom';
-import { snapMove, pushOut } from './drag-geom';
+import { snapMove, pushOut, GAP_X, GAP_Y } from './drag-geom';
 import { edgeClearance } from './layout-clearance';
 import { resolveOverlaps } from './drag-geom';
 import { layoutPositions } from './layout';
