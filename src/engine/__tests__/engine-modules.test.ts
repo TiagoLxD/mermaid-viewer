@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { edgeClearance } from '../layout-clearance';
 import { createStore } from '../store';
 import { createHistory } from '../history';
-import { showToast } from '../toast';
+import { toast as publishToast, subscribeToasts } from '../toast';
 import { entityAtCaret } from '../caret';
 import type { Box } from '../drag-geom';
 
@@ -70,16 +70,18 @@ describe('createHistory', () => {
     });
 });
 
-describe('showToast', () => {
-    it('cria elemento com textContent (sem HTML) e remove após o tempo', () => {
+describe('toast (store)', () => {
+    it('publica item, marca show no frame seguinte e remove após o tempo', async () => {
         vi.useFakeTimers();
-        const container = document.createElement('div');
-        showToast(container, '<b>oi</b>');
-        const t = container.firstChild as HTMLElement;
-        expect(t.className).toBe('toast ');
-        expect(t.textContent).toBe('<b>oi</b>'); /* escapado por textContent */
-        vi.advanceTimersByTime(2400 + 300);
-        expect(container.contains(t)).toBe(false);
+        const seen: string[][] = [];
+        const off = subscribeToasts((items) => seen.push(items.map(t => t.msg + ':' + t.show)));
+        publishToast('<b>oi</b>');
+        expect(seen[seen.length-1]).toEqual(['<b>oi</b>:false']); /* msg vira textContent no componente */
+        await vi.advanceTimersByTimeAsync(20); /* rAF */
+        expect(seen[seen.length-1]).toEqual(['<b>oi</b>:true']);
+        await vi.advanceTimersByTimeAsync(2400 + 300);
+        expect(seen[seen.length-1]).toEqual([]); /* removido */
+        off();
         vi.useRealTimers();
     });
 });

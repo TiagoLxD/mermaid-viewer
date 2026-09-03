@@ -2,6 +2,10 @@ import { mountEdgeLines, mountEdgeOverlays, mountTables } from '../components/di
 import { EdgeLines, EdgeOverlays } from '../components/diagram/edges';
 import type { EdgeGeom } from './edges-geom';
 
+export interface GuideSpec { gx: { x: number; y1: number; y2: number } | null; gy: { y: number; x1: number; x2: number } | null }
+export interface MiniItem { name: string; x: number; y: number; w: number; h: number; sel: boolean }
+export interface MiniView { x: number; y: number; w: number; h: number }
+
 /* ══════════ ponte cena ↔ engine ══════════
    Concentra tudo que é React/DOM da cena do diagrama:
    - render estrutural (mudança de modelo) via React;
@@ -27,9 +31,16 @@ export interface SceneBridge {
     edgeLineEl(key: string): SVGPathElement | null;
     /** aplica classes de foco/dim nos símbolos de uma aresta */
     setEdgeFocus(key: string, hit: boolean, dim: boolean): void;
+    /** guias de alinhamento do drag (linhas em gGuides) */
+    setGuides(g: GuideSpec): void;
+    clearGuides(): void;
+    /** rects do minimapa (cache interno por entidade) + janela da câmera */
+    drawMinimap(items: MiniItem[], view: MiniView): void;
+    clearMinimap(): void;
 }
 
-export function createSceneBridge(gTables: Element, gEdges: Element, gTop: Element): SceneBridge {
+export function createSceneBridge(gTables: Element, gEdges: Element, gTop: Element, gGuides: Element, mmContent: Element, mmView: Element): SceneBridge {
+    let mmRects: Map<string, Element> = new Map();
     const tablesRoot = mountTables(gTables);
     const linesRoot = mountEdgeLines(gEdges);
     const overlaysRoot = mountEdgeOverlays(gTop);
@@ -117,6 +128,56 @@ export function createSceneBridge(gTables: Element, gEdges: Element, gTop: Eleme
                     el.classList.toggle('dim', dim);
                 });
             }
+        },
+
+        setGuides(g) {
+            gGuides.textContent = '';
+            const NS = 'http://www.w3.org/2000/svg';
+            if (g.gx) {
+                const l = document.createElementNS(NS, 'line');
+                l.setAttribute('class', 'guide');
+                l.setAttribute('x1', String(g.gx.x)); l.setAttribute('y1', String(g.gx.y1));
+                l.setAttribute('x2', String(g.gx.x)); l.setAttribute('y2', String(g.gx.y2));
+                gGuides.append(l);
+            }
+            if (g.gy) {
+                const l = document.createElementNS(NS, 'line');
+                l.setAttribute('class', 'guide');
+                l.setAttribute('x1', String(g.gy.x1)); l.setAttribute('y1', String(g.gy.y));
+                l.setAttribute('x2', String(g.gy.x2)); l.setAttribute('y2', String(g.gy.y));
+                gGuides.append(l);
+            }
+        },
+
+        clearGuides() {
+            gGuides.textContent = '';
+        },
+
+        drawMinimap(items, view) {
+            const NS = 'http://www.w3.org/2000/svg';
+            const vis = new Set<string>();
+            for (const it of items) {
+                vis.add(it.name);
+                let r = mmRects.get(it.name);
+                if (!r) {
+                    r = document.createElementNS(NS, 'rect');
+                    r.setAttribute('rx', '2');
+                    mmRects.set(it.name, r);
+                    mmContent.append(r);
+                }
+                r.setAttribute('x', String(it.x)); r.setAttribute('y', String(it.y));
+                r.setAttribute('width', String(it.w)); r.setAttribute('height', String(it.h));
+                r.setAttribute('class', 'mm-t' + (it.sel ? ' sel' : ''));
+            }
+            for (const [name, r] of mmRects) if (!vis.has(name)) { r.remove(); mmRects.delete(name); }
+            mmView.setAttribute('x', String(view.x)); mmView.setAttribute('y', String(view.y));
+            mmView.setAttribute('width', String(view.w)); mmView.setAttribute('height', String(view.h));
+        },
+
+        clearMinimap() {
+            mmContent.textContent = '';
+            mmRects = new Map();
+            mmView.setAttribute('width', '0');
         },
     };
 }

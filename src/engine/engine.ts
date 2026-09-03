@@ -5,6 +5,8 @@ import { parseMermaid } from './parser';
 import { F, tw } from './measure';
 import { createSceneBridge } from './scene-bridge';
 import { expandAt, adjustStops, computeAcContext, acOptions, isInsideEntityBlock, type ResolvedStop } from './snippets';
+import { toast } from './toast';
+import { publishAc, publishGutter, publishHighlight, onAcAccept } from '../state/ui-bus';
 import { computeEdges, type EdgeGeom } from './edges-geom';
 import type { Entity, ParseResult } from './types';
 import { snapMove, pushOut, GAP_X, GAP_Y } from './drag-geom';
@@ -12,7 +14,6 @@ import { resolveOverlaps } from './drag-geom';
 import { layoutPositions } from './layout';
 import { store } from './store';
 import { createHistory } from './history';
-import { showToast } from './toast';
 import { entityAtCaret as entityAtCaretPure } from './caret';
 import { highlightMermaid } from './highlight';
 import { buildFormatted } from './formatter';
@@ -31,7 +32,7 @@ export function mountEngine() {
     const $ = (id: string): any => document.getElementById(id);
     const NS = 'http://www.w3.org/2000/svg';
     const canvas = $('canvas'), scene = $('scene'), gEdges = $('gEdges'), gTables = $('gTables'),
-        gTop = $('gTop'), gGuides = $('gGuides'), src = $('src'), hlcode = $('hlcode'), hl = $('hl'),
+        gTop = $('gTop'), gGuides = $('gGuides'), src = $('src'), hl = $('hl'),
         panel = $('panel'), statsEl = $('stats'), zoomLbl = $('zoomLbl'),
         parseDot = $('parseDot'), parseText = $('parseText'), parseFoot = $('parseFoot'),
         mm = $('minimap'), mmContent = $('mmContent'), mmView = $('mmView'),
@@ -39,7 +40,6 @@ export function mountEngine() {
         docs = $('docs'), docsBackdrop = $('docsBackdrop');
 
     const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
-    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     function svgEl(tag: string, attrs: Record<string, any> = {}) { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); return el; }
     /* aplica o tema salvo imediatamente — evita flash de tema errado no load */
     try {
@@ -99,7 +99,7 @@ export function mountEngine() {
     const SEQ_TOP = 118, SEQ_STEP = 46;
     const mmCollapsed = new Set(); /* ramos do mindmap recolhidos (por nome do nó) */
 
-    const sceneBridge = createSceneBridge(gTables, gEdges, gTop);
+    const sceneBridge = createSceneBridge(gTables, gEdges, gTop, gGuides, mmContent, mmView);
     function mmToggle(name: any) {
         if (mmCollapsed.has(name)) mmCollapsed.delete(name);
         else mmCollapsed.add(name);
@@ -330,9 +330,7 @@ export function mountEngine() {
     let dragState: any = null, panState: any = null;
 
     function drawGuides(sn: any) {
-        gGuides.textContent = '';
-        if (sn.gx) gGuides.append(svgEl('line', { class: 'guide', x1: sn.gx.x, y1: sn.gx.y1, x2: sn.gx.x, y2: sn.gx.y2 }));
-        if (sn.gy) gGuides.append(svgEl('line', { class: 'guide', x1: sn.gy.x1, y1: sn.gy.y, x2: sn.gy.x2, y2: sn.gy.y }));
+        sceneBridge.setGuides({ gx: sn.gx, gy: sn.gy });
     }
 
     function onTableDown(e: any, ent: any) {
@@ -376,7 +374,7 @@ export function mountEngine() {
         if (dragState) {
             const ent = dragState.ent;
             ent.g.classList.remove('dragging');
-            gGuides.textContent = '';
+            sceneBridge.clearGuides();
             if (dragState.moved) {
                 /* nunca termina sobre outra tabela: empurra só ela para fora */
                 pushOut(model.entities, ent, GAP_X, GAP_Y);
@@ -401,37 +399,26 @@ export function mountEngine() {
     /* ══════════ 10-minimap.js ══════════ */
     /* ══════════ minimapa ══════════ */
     let mmState: any = null;
-    let mmRects: any = new Map(); /* rect cacheado por entidade (updates diretos) */
-    function mmRebuild() {
-        mmContent.textContent = '';
-        mmRects = new Map();
-        for (const e of model.entities) {
-            if (e.hidden) continue;
-            const r = svgEl('rect', { x: 0, y: 0, width: 0, height: 0, rx: 2, class: 'mm-t' + (e.name === selectedId ? ' sel' : '') });
-            mmRects.set(e.name, r); mmContent.append(r);
-        }
-    }
     function updateMinimap() {
         const bb = contentBBox();
-        if (!bb) { mmContent.textContent = ''; mmView.setAttribute('width', 0); mmState = null; return; }
+        if (!bb) { sceneBridge.clearMinimap(); mmState = null; return; }
         const rx = Math.min(bb.x, cam.x) - 40, ry = Math.min(bb.y, cam.y) - 40;
         const w = Math.max(bb.x + bb.w, cam.x + cam.w) + 40 - rx;
         const h = Math.max(bb.y + bb.h, cam.y + cam.h) + 40 - ry;
         const s = Math.min(174 / w, 104 / h), ox = (190 - w * s) / 2, oy = (120 - h * s) / 2;
         mmState = { s, ox, oy, rx, ry };
-        const vis = new Set<string>();
-        for (const e of model.entities) {
-            if (e.hidden) continue;
-            vis.add(e.name);
-            let r = mmRects.get(e.name);
-            if (!r) { mmRebuild(); r = mmRects.get(e.name); }
-            r.setAttribute('x', ox + (e.x - rx) * s); r.setAttribute('y', oy + (e.y - ry) * s);
-            r.setAttribute('width', Math.max(3, e.w * s)); r.setAttribute('height', Math.max(2.4, e.h * s));
-            r.setAttribute('class', 'mm-t' + (e.name === selectedId ? ' sel' : ''));
-        }
-        for (const [name, r] of mmRects) if (!vis.has(name)) { r.remove(); mmRects.delete(name); }
-        mmView.setAttribute('x', ox + (cam.x - rx) * s); mmView.setAttribute('y', oy + (cam.y - ry) * s);
-        mmView.setAttribute('width', cam.w * s); mmView.setAttribute('height', cam.h * s);
+        const items = model.entities
+            .filter((e: Ent) => !e.hidden)
+            .map((e: Ent) => ({
+                name: e.name,
+                x: ox + (e.x - rx) * s, y: oy + (e.y - ry) * s,
+                w: Math.max(3, e.w * s), h: Math.max(2.4, e.h * s),
+                sel: e.name === selectedId,
+            }));
+        sceneBridge.drawMinimap(items, {
+            x: ox + (cam.x - rx) * s, y: oy + (cam.y - ry) * s,
+            w: cam.w * s, h: cam.h * s,
+        });
     }
     function mmNav(e: any) {
         if (!mmState) return;
@@ -453,7 +440,7 @@ export function mountEngine() {
 
 
     /* ══════════ 11-editor.js ══════════ */
-    const renderHighlight = () => { hlcode.innerHTML = highlightMermaid(src.value); };
+    const renderHighlight = () => publishHighlight(highlightMermaid(src.value));
 
     /* ══════════ formatador ══════════ */
     const buildFormattedLocal = () => buildFormatted(src.value, model.type);
@@ -646,7 +633,7 @@ export function mountEngine() {
 
     /* ══════════ 14-ui.js ══════════ */
     /* ══════════ toasts / tema / painel / menus / docs ══════════ */
-    const toast = (msg: any, type = '') => showToast($('toasts'), msg, type);
+
 
     function exportMMD() {
         if (!src.value.trim()) { toast('Nada para salvar', 'err'); return; }
@@ -707,9 +694,16 @@ export function mountEngine() {
 
     /* ══════════ 16-snippets.js ══════════ */
     /* ══════════ snippets: slash commands + tabstops ══════════ */
-    const snipMenu = document.getElementById('snipMenu') as HTMLElement;
     let snipState: { stops: ResolvedStop[]; idx: number } | null = null;
     let acList: any[] = [], acSel = 0, acCtx: any = null;
+    let acOpen = false;
+    function publishAcState() {
+        publishAc({
+            open: acOpen, sel: acSel, x: acXY.x, y: acXY.y,
+            items: acList.map((it: any) => ({ label: it.label, desc: it.desc, item: it })),
+        });
+    }
+    let acXY = { x: 0, y: 0 };
 
     const monoCtx = document.createElement('canvas').getContext('2d')!;
     function caretXY() {
@@ -726,7 +720,10 @@ export function mountEngine() {
             y: clamp(parseFloat(cs.paddingTop) + line * lh - src.scrollTop + 2, 0, wrap.clientHeight - 160)
         };
     }
-    function closeAc() { snipMenu.classList.remove('open'); acList = []; acCtx = null; }
+    function closeAc() {
+        acList = []; acCtx = null;
+        if (acOpen) { acOpen = false; publishAcState(); }
+    }
     function entityNames() {
         const set = new Set();
         for (const m of src.value.matchAll(/^\s*([A-Za-z_][\w.\-]*)\s*\{/gm)) set.add(m[1]);
@@ -744,17 +741,9 @@ export function mountEngine() {
         acList = acOptions(acCtx, entityNames() as string[]);
         if (!acList.length) { closeAc(); return; }
         acSel = 0;
-        snipMenu.textContent = '';
-        acList.forEach((it: any, i: any) => {
-            const d = document.createElement('div');
-            d.className = 'snip-item' + (i === acSel ? ' on' : '');
-            d.innerHTML = `<span class="cmd">${esc(it.label)}</span><span class="desc">${esc(it.desc)}</span>`;
-            d.onmousedown = e => { e.preventDefault(); acceptAc(it); };
-            snipMenu.append(d);
-        });
-        const cp = caretXY();
-        snipMenu.style.left = cp.x + 'px'; snipMenu.style.top = cp.y + 'px';
-        snipMenu.classList.add('open');
+        acXY = caretXY();
+        acOpen = true;
+        publishAcState();
     }
     function acceptAc(item: any) {
         if (acCtx.mode === 'slash') { acceptSnippet(item.snippet, acCtx.qr); return; }
@@ -795,24 +784,12 @@ export function mountEngine() {
 
     /* ══════════ 17-gutter.js ══════════ */
     /* ══════════ gutter: numeração de linhas ══════════ */
-    const gutter = document.getElementById('gutter')!, gutterIn = gutter.querySelector('div') as HTMLElement;
-    let gutterCount = -1;
+        let gutterCount = -1;
     function updateGutter() {
         const n = src.value.split('\n').length;
-        if (n !== gutterCount) {
-            gutterCount = n;
-            gutterIn.textContent = '';
-            for (let i = 1; i <= n; i++) {
-                const s = document.createElement('span');
-                s.textContent = String(i);
-                gutterIn.append(s);
-            }
-        }
         const line = src.value.slice(0, src.selectionStart).split('\n').length - 1;
-        [...gutterIn.children].forEach((el, i) => el.classList.toggle('cur', i === line));
-        gutterIn.style.transform = `translateY(${-src.scrollTop}px)`;
+        publishGutter({ count: n, cur: line, scrollTop: src.scrollTop });
     }
-
 
     /* ══════════ 18-undo.js ══════════ */
     /* ══════════ undo / redo ══════════ */
@@ -841,7 +818,7 @@ export function mountEngine() {
     /* ══════════ editor: eventos ══════════ */
     let applyT: any = null;
     function scheduleApply() {
-        if (snipMenu.classList.contains('open')) return; /* aguarda snippet ser resolvido */
+        if (acOpen) return; /* aguarda snippet ser resolvido */
         clearTimeout(applyT);
         applyT = setTimeout(() => {
             applySource(src.value);
@@ -866,7 +843,7 @@ export function mountEngine() {
         updateGutter();
         beforeState = snapState();
     });
-    src.addEventListener('scroll', () => { hl.scrollTop = src.scrollTop; hl.scrollLeft = src.scrollLeft; closeAc(); gutterIn.style.transform = `translateY(${-src.scrollTop}px)`; });
+    src.addEventListener('scroll', () => { hl.scrollTop = src.scrollTop; hl.scrollLeft = src.scrollLeft; closeAc(); publishGutter({ count: gutterCount, cur: src.value.slice(0, src.selectionStart).split('\n').length - 1, scrollTop: src.scrollTop }); });
     src.addEventListener('blur', () => setTimeout(closeAc, 120));
     src.addEventListener('click', () => { snipState = null; closeAc(); updateGutter(); editorFocusEntity(); });
 
@@ -883,21 +860,19 @@ export function mountEngine() {
         animateCam({ x: e.x + e.w / 2 - w / 2, y: e.y + e.h / 2 - w * (rh / rw) / 2, w }, 420);
     }
     src.addEventListener('keydown', (e: any) => {
-        const menuOpen = snipMenu.classList.contains('open');
-        if (menuOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        if (acOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
             e.preventDefault();
             acSel = (acSel + (e.key === 'ArrowDown' ? 1 : acList.length - 1)) % acList.length;
-            [...snipMenu.children].forEach((el, i) => el.classList.toggle('on', i === acSel));
-            snipMenu.children[acSel].scrollIntoView({ block: 'nearest' });
+            publishAcState(); /* componente rola o item selecionado à vista */
             return;
         }
-        if (menuOpen && (e.key === 'Enter' || (e.key === 'Tab' && acCtx && acCtx.mode === 'slash'))) {
+        if (acOpen && (e.key === 'Enter' || (e.key === 'Tab' && acCtx && acCtx.mode === 'slash'))) {
             e.preventDefault();
             acceptAc(acList[acSel]);
             return;
         }
-        if (menuOpen && e.key === 'Tab') { e.preventDefault(); closeAc(); return; } /* fora do slash: Tab fecha menu e indentA */
-        if (e.key === 'Escape' && menuOpen) { e.preventDefault(); closeAc(); return; }
+        if (acOpen && e.key === 'Tab') { e.preventDefault(); closeAc(); return; } /* fora do slash: Tab fecha menu e indentA */
+        if (e.key === 'Escape' && acOpen) { e.preventDefault(); closeAc(); return; }
         if (e.key === 'Escape' && snipState) { snipState = null; return; }
 
         /* Ctrl+Z desfaz · Ctrl+Shift+Z / Ctrl+Y refaz */
@@ -926,7 +901,7 @@ export function mountEngine() {
             return;
         }
         /* Enter com indentação automática: segue a linha de cima; abre bloco = +4 espaços */
-        if (e.key === 'Enter' && !menuOpen && src.selectionStart === src.selectionEnd) {
+        if (e.key === 'Enter' && !acOpen && src.selectionStart === src.selectionEnd) {
             e.preventDefault();
             pushHistory();
             const s = src.selectionStart;
@@ -1006,6 +981,7 @@ export function mountEngine() {
         if (!e.ctrlKey && !e.metaKey && !e.altKey && tag !== 'TEXTAREA' && (e.key === 'f' || e.key === 'F')) organize();
         if (!e.ctrlKey && !e.metaKey && !e.altKey && tag !== 'TEXTAREA' && (e.key === 'p' || e.key === 'P')) setPreview(!previewMode);
     });
+    onAcAccept((item: any) => acceptAc(item));
     $('btnFormat').onclick = () => formatCode();
     $('btnOrganize').onclick = organize;
     const btnPreview = $('btnPreview');

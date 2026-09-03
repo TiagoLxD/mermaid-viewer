@@ -112,9 +112,13 @@ A -->> U: token`);
         expect(document.getElementById('parseFoot')?.classList.contains('err')).toBe(false);
     });
 
-    it('highlight do editor reflete o código', async () => {
+    it('highlight do editor é publicado no bus (componente renderiza)', async () => {
+        const seen: string[] = [];
+        const h = (e: Event) => seen.push((e as CustomEvent).detail.html);
+        window.addEventListener('meridian:highlight', h);
         await applyCode('erDiagram\nUSUARIO ||--o{ PEDIDO : realiza');
-        expect(document.getElementById('hlcode')!.innerHTML).toContain('<span class="c-kw">erDiagram</span>');
-        expect(document.getElementById('hlcode')!.innerHTML).toContain('<span class="c-en">USUARIO</span>');
+        window.removeEventListener('meridian:highlight', h);
+        expect(seen[seen.length-1]).toContain('<span class="c-kw">erDiagram</span>');
+        expect(seen[seen.length-1]).toContain('<span class="c-en">USUARIO</span>');
     });
 });

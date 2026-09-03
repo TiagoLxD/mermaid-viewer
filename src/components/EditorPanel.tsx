@@ -1,5 +1,8 @@
 import { Button } from '../shared/Button';
 import { Icon } from '../shared/Icon';
+import { Gutter } from './editor/Gutter';
+import { Highlight } from './editor/Highlight';
+import { SnippetMenu } from './editor/SnippetMenu';
 
 /** Painel de código (textarea + highlight + gutter + snippets). */
 export function EditorPanel() {
@@ -25,7 +28,7 @@ export function EditorPanel() {
 
             <div className="code-wrap">
                 <pre id="hl" aria-hidden="true">
-                    <code id="hlcode" />
+                    <Highlight />
                 </pre>
                 <textarea
                     id="src"
@@ -35,9 +38,9 @@ export function EditorPanel() {
                     aria-label="Código Mermaid do diagrama"
                 />
                 <div id="gutter" aria-hidden="true">
-                    <div id="gutterIn" />
+                    <Gutter />
                 </div>
-                <div id="snipMenu" role="listbox" aria-label="Snippets Mermaid" />
+                <SnippetMenu />
             </div>
 
             <div className="panel-foot" id="parseFoot">

@@ -4,6 +4,7 @@ import { TopBar } from './TopBar';
 import { EditorPanel } from './EditorPanel';
 import { Stage } from './Stage';
 import { DocsPanel } from './DocsPanel';
+import { Toasts } from './Toasts';
 
 /**
  * Shell da aplicação. Os elementos aqui renderizados são identificados
@@ -27,7 +28,7 @@ export default function EngineHost() {
 
             <DocsPanel />
 
-            <div id="toasts" />
+            <Toasts />
         </>
     );
 }
