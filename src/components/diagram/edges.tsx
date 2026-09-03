@@ -82,7 +82,7 @@ export function EdgeOverlays({ geoms, ms }: { geoms: EdgeGeom[]; ms: number }) {
                     <g
                         key={key}
                         className="e-mk"
-                        data-edge={g.key}
+                        data-edge={key}
                         transform={`translate(${P.x} ${P.y}) rotate(${P.rot}) scale(${ms})`}
                     >
                         {rel.simple ? <SimpleMarker kind={kind} /> : <CrowGlyph type={crow!} />}
@@ -91,7 +91,7 @@ export function EdgeOverlays({ geoms, ms }: { geoms: EdgeGeom[]; ms: number }) {
                 const badge = (b: NonNullable<EdgeGeom['badgeA']>, key: string) => {
                     const w = Math.round(tw(b.text, F.card)) + 10;
                     return (
-                        <g key={key} className="e-card" data-edge={g.key} transform={`translate(${b.x} ${b.y}) scale(${ms})`}>
+                        <g key={key} className="e-card" data-edge={key} transform={`translate(${b.x} ${b.y}) scale(${ms})`}>
                             <title>{b.tip || b.text}</title>
                             <rect x={-w / 2} y={-7} width={w} height={14} rx={7} />
                             <text textAnchor="middle" y={3}>{b.text}</text>
