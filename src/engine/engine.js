@@ -2,9 +2,9 @@
 // Organizado em blocos marcados com /* ══════════ NN-nome ══════════ */ — edite aqui mesmo.
 
 import { parseMermaid } from './parser';
-import { highlightMermaid } from './highlight.js';
-import { buildFormatted } from './formatter.js';
-import { EXAMPLES } from './examples.js';
+import { highlightMermaid } from './highlight';
+import { buildFormatted } from './formatter';
+import { EXAMPLES } from './examples';
 
 export function mountEngine() {
     /* ══════════ 00-core.js ══════════ */
