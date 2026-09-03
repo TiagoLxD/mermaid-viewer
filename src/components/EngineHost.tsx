@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { mountEngine } from '../engine/engine.js';
+import { mountEngine } from '../engine/engine';
 import { TopBar } from './TopBar';
 import { EditorPanel } from './EditorPanel';
 import { Stage } from './Stage';

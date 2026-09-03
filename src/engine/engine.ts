@@ -6,7 +6,6 @@ import { F, tw } from './measure';
 import { mountTables, mountEdgeLines, mountEdgeOverlays } from '../components/diagram/Scene';
 import { computeEdges } from './edges-geom';
 import { snapMove, pushOut, GAP_X, GAP_Y } from './drag-geom';
-import { edgeClearance } from './layout-clearance';
 import { resolveOverlaps } from './drag-geom';
 import { layoutPositions } from './layout';
 import { store } from './store';
@@ -20,7 +19,7 @@ import { EXAMPLES } from './examples';
 export function mountEngine() {
     /* ══════════ 00-core.js ══════════ */
     /* ══════════ refs & helpers ══════════ */
-    const $ = id => document.getElementById(id);
+    const $ = (id: string): any => document.getElementById(id);
     const NS = 'http://www.w3.org/2000/svg';
     const canvas = $('canvas'), scene = $('scene'), gEdges = $('gEdges'), gTables = $('gTables'),
         gTop = $('gTop'), gGuides = $('gGuides'), src = $('src'), hlcode = $('hlcode'), hl = $('hl'),
@@ -30,22 +29,22 @@ export function mountEngine() {
         exportMenu = $('exportMenu'),
         docs = $('docs'), docsBackdrop = $('docsBackdrop');
 
-    const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    function svgEl(tag, attrs = {}) { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); return el; }
+    const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    function svgEl(tag: string, attrs: Record<string, any> = {}) { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); return el; }
     /* aplica o tema salvo imediatamente — evita flash de tema errado no load */
     try {
         const t0 = localStorage.getItem('meridian:theme');
         if (t0) document.documentElement.dataset.theme = t0;
     } catch (e) { }
-    const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+    const cssVar = (n: any) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 
     /* ══════════ 04-measure.js ══════════ */
     /* ══════════ medidas das tabelas ══════════ */
 
 
-    function measureEntity(e) {
+    function measureEntity(e: any) {
         if (model.type === 'pie') {
             if (e.pieTitle) { e.w = Math.round(tw(e.label, '600 14px "Space Grotesk", sans-serif') + 20); e.h = 30; }
             return; /* geometria das fatias calculada no layout */
@@ -67,10 +66,10 @@ export function mountEngine() {
             return;
         }
         let w = 170;
-        const cwCm = Math.max(0, ...e.attrs.map(a => a.comment ? tw(a.comment, F.comment) + 12 : 0));
+        const cwCm = Math.max(0, ...e.attrs.map((a: any) => a.comment ? tw(a.comment, F.comment) + 12 : 0));
         e.commentW = Math.round(cwCm);
         for (const a of e.attrs) {
-            const bw = a.keys.reduce((s, k) => s + tw(k, F.key) + 12 + 5, 0);
+            const bw = a.keys.reduce((s: any, k: any) => s + tw(k, F.key) + 12 + 5, 0);
             w = Math.max(w, 14 + tw(a.name, F.name) + (a.keys.length ? 7 + bw : 0) + 12 + tw(a.type, F.type) + 14 + e.commentW);
         }
         const cw = tw(String(e.attrs.length), F.count) + 12;
@@ -84,57 +83,57 @@ export function mountEngine() {
 
     /* ══════════ 06-tables.js ══════════ */
     /* ══════════ cena React: nós declarativos + delegação de interação ══════════ */
-    let model = { entities: [], relations: [] }, byId = {}, adj = {}, positions = {};
+    let model: any = { entities: [], relations: [] }, byId: any = {}, adj: any = {}, positions: any = {};
     const SEQ_TOP = 118, SEQ_STEP = 46;
     const mmCollapsed = new Set(); /* ramos do mindmap recolhidos (por nome do nó) */
 
     const tables = mountTables(gTables);
-    function mmToggle(name) {
+    function mmToggle(name: any) {
         if (mmCollapsed.has(name)) mmCollapsed.delete(name);
         else mmCollapsed.add(name);
         applySource(src.value, { resetLayout: true, mode: layoutSel.value });
     }
-    function renderTables(animate) {
+    function renderTables(animate: any) {
         tables.render({
             type: model.type,
-            entities: model.entities.filter(e => !e.hidden),
+            entities: model.entities.filter((e: any) => !e.hidden),
             animate,
             onToggle: mmToggle,
         });
         refreshRefs();
     }
     function refreshRefs() {
-        gTables.querySelectorAll('g.table').forEach(g => {
+        gTables.querySelectorAll('g.table').forEach((g: any) => {
             const e = byId[g.dataset.id];
             if (e) { e.g = g; e.inner = g.firstChild; }
         });
     }
     /* visibilidade do mindmap: nó oculto se algum ancestral estiver recolhido */
     function mmHiddenState() {
-        const parent = {};
+        const parent: any = {};
         for (const r of model.relations) parent[r.b] = r.a;
         for (const e of model.entities) {
             let p = parent[e.name], hid = false, guard = 0;
             while (p && guard++ < 100) { if (mmCollapsed.has(p)) { hid = true; break; } p = parent[p]; }
             e.hidden = hid;
-            e.hasKids = model.relations.some(r => r.a === e.name);
+            e.hasKids = model.relations.some((r: any) => r.a === e.name);
             e.collapsed = mmCollapsed.has(e.name);
         }
     }
-    let hoverId = null, selectedId = null, animating = false, previewMode = false;
+    let hoverId: any = null, selectedId: any = null, animating = false, previewMode = false;
 
     /* delegação de eventos (drag/hover) — os nós são componentes React sem estado */
-    gTables.addEventListener('pointerdown', e => {
+    gTables.addEventListener('pointerdown', (e: any) => {
         if (e.target.closest('.mm-tgl')) return; /* selo do mindmap tem handler próprio */
         const g = e.target.closest('g.table');
         const ent = g && byId[g.dataset.id];
         if (ent) onTableDown(e, ent);
     });
-    gTables.addEventListener('pointerover', e => {
+    gTables.addEventListener('pointerover', (e: any) => {
         const g = e.target.closest('g.table');
         if (g && byId[g.dataset.id]) { hoverId = g.dataset.id; updateFocus(); }
     });
-    gTables.addEventListener('pointerout', e => {
+    gTables.addEventListener('pointerout', (e: any) => {
         const g = e.target.closest('g.table');
         if (g && g.dataset.id === hoverId) { hoverId = null; updateFocus(); }
     });
@@ -143,12 +142,12 @@ export function mountEngine() {
     /* ══════════ arestas: geometria pura (edges-geom) + render React ══════════ */
     const edgeLayer = mountEdgeLines(gEdges);
     const edgeOverlay = mountEdgeOverlays(gTop);
-    let edgeGeoms = [];
-    function renderEdges(animate) {
+    let edgeGeoms: any[] = [];
+    function renderEdges(animate: any) {
         const ms = clamp(1 / (vw() / cam.w), 1, 1.7); /* compensação de zoom */
         edgeGeoms = computeEdges({
             type: model.type,
-            entities: model.entities.filter(e => !e.hidden && e.x != null),
+            entities: model.entities.filter((e: any) => !e.hidden && e.x != null),
             relations: model.relations,
             seqTop: SEQ_TOP, seqStep: SEQ_STEP, seqBottom: model.seqBottom,
             ms,
@@ -198,10 +197,10 @@ export function mountEngine() {
             const hit = !!act && (E.aName === act || E.bName === act);
             const dim = !!act && !hit;
             const sel = '[data-edge="' + CSS.escape(E.key) + '"]';
-            gEdges.querySelectorAll(sel).forEach(el => {
+            gEdges.querySelectorAll(sel).forEach((el: any) => {
                 el.classList.toggle('on', hit); el.classList.toggle('dim', dim);
             });
-            gTop.querySelectorAll(sel).forEach(el => {
+            gTop.querySelectorAll(sel).forEach((el: any) => {
                 el.classList.toggle('on', hit); el.classList.toggle('dim', dim);
             });
         }
@@ -210,11 +209,11 @@ export function mountEngine() {
 
     /* ══════════ 08-camera.js ══════════ */
     /* ══════════ câmera / pan / zoom ══════════ */
-    let cam = { x: 0, y: 0, w: 1000, h: 700 }, camAnim = null;
+    let cam: any = { x: 0, y: 0, w: 1000, h: 700 }, camAnim: any = null;
     const vs = () => ({ rw: canvas.clientWidth, rh: canvas.clientHeight });
     const vw = () => canvas.clientWidth;
     function normalizeH() { const { rw, rh } = vs(); cam.h = cam.w * rh / Math.max(1, rw); }
-    function screenToWorld(cx, cy) {
+    function screenToWorld(cx: any, cy: any) {
         const r = scene.getBoundingClientRect();
         return { x: cam.x + (cx - r.left) / r.width * cam.w, y: cam.y + (cy - r.top) / r.height * cam.h };
     }
@@ -228,11 +227,11 @@ export function mountEngine() {
         updateEdgeGeometry();
         updateMinimap();
     }
-    function animateCam(target, dur = 480) {
+    function animateCam(target: any, dur = 480) {
         cancelAnimationFrame(camAnim);
         const s = { ...cam }, t0 = performance.now();
-        const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-        const step = t => {
+        const ease = (t: any) => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        const step = (t: any) => {
             const p = Math.min(1, (t - t0) / dur), k = ease(p);
             cam.x = s.x + (target.x - s.x) * k; cam.y = s.y + (target.y - s.y) * k; cam.w = s.w + (target.w - s.w) * k;
             applyView();
@@ -257,7 +256,7 @@ export function mountEngine() {
         const w = rw / s, t = { x: bb.x + bb.w / 2 - w / 2, y: bb.y + bb.h / 2 - w * (rh / rw) / 2, w };
         if (animate) animateCam(t, 560); else { cam.w = t.w; cam.x = t.x; cam.y = t.y; applyView(); }
     }
-    function zoomBy(f) {
+    function zoomBy(f: any) {
         const { rw, rh } = vs();
         const cx = cam.x + cam.w / 2, cy = cam.y + cam.h / 2;
         const w = clamp(cam.w / f, rw / 7, rw * 6);
@@ -267,7 +266,7 @@ export function mountEngine() {
         const { rw, rh } = vs(), cx = cam.x + cam.w / 2, cy = cam.y + cam.h / 2;
         animateCam({ x: cx - rw / 2, y: cy - rw * (rh / rw) / 2, w: rw }, 260);
     }
-    canvas.addEventListener('wheel', e => {
+    canvas.addEventListener('wheel', (e: any) => {
         if (e.target.closest('#toolbar,#minimap')) return;
         e.preventDefault();
         cancelAnimationFrame(camAnim);
@@ -283,8 +282,8 @@ export function mountEngine() {
 
     /* ── gestos de toque: 1 dedo = pan/arrasto, 2 dedos = pinch zoom ── */
     const touchPtrs = new Map();
-    let pinch = null;
-    canvas.addEventListener('pointerdown', e => {
+    let pinch: any = null;
+    canvas.addEventListener('pointerdown', (e: any) => {
         if (e.pointerType !== 'touch') return;
         touchPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (touchPtrs.size === 2) {
@@ -296,7 +295,7 @@ export function mountEngine() {
             pinch = { d: Math.hypot(p1.x - p2.x, p1.y - p2.y), w: cam.w };
         }
     });
-    canvas.addEventListener('pointermove', e => {
+    canvas.addEventListener('pointermove', (e: any) => {
         if (!touchPtrs.has(e.pointerId)) return;
         touchPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (touchPtrs.size >= 2 && pinch) {
@@ -312,7 +311,7 @@ export function mountEngine() {
             applyView();
         }
     });
-    const endTouch = e => {
+    const endTouch = (e: any) => {
         touchPtrs.delete(e.pointerId);
         if (touchPtrs.size < 2) pinch = null;
     };
@@ -322,15 +321,15 @@ export function mountEngine() {
 
     /* ══════════ 09-drag.js ══════════ */
     /* ══════════ arrastar tabelas + guias inteligentes ══════════ */
-    let dragState = null, panState = null;
+    let dragState: any = null, panState: any = null;
 
-    function drawGuides(sn) {
+    function drawGuides(sn: any) {
         gGuides.textContent = '';
         if (sn.gx) gGuides.append(svgEl('line', { class: 'guide', x1: sn.gx.x, y1: sn.gx.y1, x2: sn.gx.x, y2: sn.gx.y2 }));
         if (sn.gy) gGuides.append(svgEl('line', { class: 'guide', x1: sn.gy.x1, y1: sn.gy.y, x2: sn.gy.x2, y2: sn.gy.y }));
     }
 
-    function onTableDown(e, ent) {
+    function onTableDown(e: any, ent: any) {
         if (e.button !== 0 || animating || previewMode) return;
         e.stopPropagation();
         const p = screenToWorld(e.clientX, e.clientY);
@@ -339,7 +338,7 @@ export function mountEngine() {
         ent.g.classList.add('dragging');
         if (selectedId !== ent.name) { selectedId = ent.name; updateFocus(); }
     }
-    scene.addEventListener('pointerdown', e => {
+    scene.addEventListener('pointerdown', (e: any) => {
         if (e.button === 1) { e.preventDefault(); }
         if (e.target !== scene) return;
         if (e.button !== 0 && e.button !== 1) return;
@@ -347,7 +346,7 @@ export function mountEngine() {
         scene.setPointerCapture(e.pointerId);
         scene.classList.add('panning');
     });
-    scene.addEventListener('pointermove', e => {
+    scene.addEventListener('pointermove', (e: any) => {
         if (dragState) {
             const p = screenToWorld(e.clientX, e.clientY);
             const ent = dragState.ent;
@@ -365,7 +364,7 @@ export function mountEngine() {
             applyView();
         }
     });
-    function endPointer(e) {
+    function endPointer(_e: PointerEvent) {
         if (dragState) {
             const ent = dragState.ent;
             ent.g.classList.remove('dragging');
@@ -388,12 +387,12 @@ export function mountEngine() {
     }
     scene.addEventListener('pointerup', endPointer);
     scene.addEventListener('pointercancel', endPointer);
-    scene.addEventListener('dblclick', e => { if (e.target === scene) fitView(true); });
+    scene.addEventListener('dblclick', (e: any) => { if (e.target === scene) fitView(true); });
 
 
     /* ══════════ 10-minimap.js ══════════ */
     /* ══════════ minimapa ══════════ */
-    let mmState = null;
+    let mmState: any = null;
     function updateMinimap() {
         const bb = contentBBox();
         if (!bb) { mmContent.textContent = ''; mmView.setAttribute('width', 0); mmState = null; return; }
@@ -414,7 +413,7 @@ export function mountEngine() {
         mmView.setAttribute('x', ox + (cam.x - rx) * s); mmView.setAttribute('y', oy + (cam.y - ry) * s);
         mmView.setAttribute('width', cam.w * s); mmView.setAttribute('height', cam.h * s);
     }
-    function mmNav(e) {
+    function mmNav(e: any) {
         if (!mmState) return;
         const r = mm.getBoundingClientRect();
         const wx = mmState.rx + (e.clientX - r.left - mmState.ox) / mmState.s;
@@ -423,11 +422,11 @@ export function mountEngine() {
         cam.x = wx - cam.w / 2; cam.y = wy - cam.h / 2;
         applyView();
     }
-    mm.addEventListener('pointerdown', e => {
+    mm.addEventListener('pointerdown', (e: any) => {
         e.stopPropagation();
         mm.setPointerCapture(e.pointerId);
         mmNav(e);
-        const mv = ev => mmNav(ev);
+        const mv = (ev: any) => mmNav(ev);
         mm.addEventListener('pointermove', mv);
         mm.addEventListener('pointerup', () => mm.removeEventListener('pointermove', mv), { once: true });
     });
@@ -439,7 +438,7 @@ export function mountEngine() {
     /* ══════════ formatador ══════════ */
     const buildFormattedLocal = () => buildFormatted(src.value, model.type);
 
-    function formatCode(silent) {
+    function formatCode(silent?: boolean) {
         const formatted = buildFormattedLocal();
         if (formatted == null) { if (!silent) toast('Corrija os erros antes de formatar', 'err'); return false; }
         pushHistory();
@@ -453,7 +452,7 @@ export function mountEngine() {
 
     /* ══════════ 12-pipeline.js ══════════ */
     /* ══════════ pipeline de aplicação ══════════ */
-    function placeNear(ent) {
+    function placeNear(ent: any) {
         const nb = [];
         for (const r of model.relations) {
             const o = r.a === ent.name ? r.b : (r.b === ent.name ? r.a : null);
@@ -464,17 +463,17 @@ export function mountEngine() {
             cx = nb.reduce((s, p) => s + p.x, 0) / nb.length + ent.w / 2;
             cy = nb.reduce((s, p) => s + p.y, 0) / nb.length + ent.h / 2;
         } else { cx = cam.x + cam.w / 2 - ent.w / 2; cy = cam.y + cam.h / 2 - ent.h / 2; }
-        const i = placeNear.n = (placeNear.n || 0) + 1;
+        const i = (placeNear as any).n = ((placeNear as any).n || 0) + 1;
         const a = i * 2.1, r = 30 + i * 26;
         ent.x = Math.round(cx + Math.cos(a) * r); ent.y = Math.round(cy + Math.sin(a) * r);
     }
 
-    function applySource(code, opts = {}) {
+    function applySource(code: string, opts: any = {}) {
         let { resetLayout = false } = opts;
         const { animate = false, mode = 'force' } = opts;
         const res = parseMermaid(code);
         if (res.errors.length) { setParseState(res.errors); return false; }
-        setParseState(null, res);
+        setParseState(null as any, res);
         model = res;
         if (model.type === 'mindmap') mmHiddenState();
         for (const e of model.entities) if (!e.hidden) measureEntity(e);
@@ -489,7 +488,7 @@ export function mountEngine() {
             /* nós ocultos (ramos recolhidos) não entram no layout: mantêm a posição antiga */
             for (const e of model.entities) { const p = map.get(e.name); if (p) { e.x = p.x; e.y = p.y; } }
         } else {
-            placeNear.n = 0; let anyNew = false;
+            (placeNear as any).n = 0; let anyNew = false;
             for (const e of model.entities) {
                 const p = positions[e.name];
                 if (p) { e.x = p.x; e.y = p.y; } else { placeNear(e); anyNew = true; }
@@ -497,7 +496,7 @@ export function mountEngine() {
             if (anyNew) resolveOverlaps(model.entities, 40);
         }
         byId = {};
-        model.entities.forEach((e) => { if (!e.hidden) byId[e.name] = e; });
+        model.entities.forEach((e: any) => { if (!e.hidden) byId[e.name] = e; });
         renderTables(animate);
         for (const k of Object.keys(positions)) if (!byId[k]) delete positions[k];
         for (const e of model.entities) positions[e.name] = { x: e.x, y: e.y };
@@ -509,14 +508,14 @@ export function mountEngine() {
         for (const e of model.entities) positions[e.name] = { x: e.x, y: e.y };
         store.set('pos', JSON.stringify(positions));
     }
-    function animateTo(targets, dur, done) {
+    function animateTo(targets: any, dur: any, done: any) {
         animating = true;
-        const starts = model.entities.map(e => ({ x: e.x, y: e.y }));
+        const starts = model.entities.map((e: any) => ({ x: e.x, y: e.y }));
         const t0 = performance.now();
-        const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-        const step = t => {
+        const ease = (t: any) => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        const step = (t: any) => {
             const p = Math.min(1, (t - t0) / dur), k = ease(p);
-            model.entities.forEach((e, i) => {
+            model.entities.forEach((e: any, i: any) => {
                 const s = targets.get(e.name); if (!s) return;
                 e.x = starts[i].x + (s.x - starts[i].x) * k; e.y = starts[i].y + (s.y - starts[i].y) * k;
                 e.g.setAttribute('transform', `translate(${e.x} ${e.y})`);
@@ -535,15 +534,15 @@ export function mountEngine() {
     }
     function updateStats() {
         if (model.type === 'pie') {
-            const n = model.entities.filter(e => !e.pieTitle).length;
+            const n = model.entities.filter((e: any) => !e.pieTitle).length;
             statsEl.textContent = `${n} fatias · total ${model.pieTotal}`;
             return;
         }
-        const vis = model.entities.filter(e => !e.hidden);
-        const fields = vis.reduce((s, e) => s + e.attrs.length, 0);
+        const vis = model.entities.filter((e: any) => !e.hidden);
+        const fields = vis.reduce((s: any, e: any) => s + e.attrs.length, 0);
         statsEl.textContent = `${vis.length} entidades · ${edgeGeoms.length} relações · ${fields} campos`;
     }
-    function setParseState(errors, res) {
+    function setParseState(errors: any, res?: any) {
         if (errors && errors.length) {
             parseDot.classList.add('err'); parseFoot.classList.add('err');
             parseText.textContent = `linha ${errors[0].line}: ${errors[0].msg}${errors.length > 1 ? ` (+${errors.length - 1})` : ''}`;
@@ -556,18 +555,18 @@ export function mountEngine() {
 
     /* ══════════ 13-export.js ══════════ */
     /* ══════════ exportação SVG / PNG ══════════ */
-    let _fontCSS = null;
+    let _fontCSS: any = null;
     async function getFontCSS() {
         if (_fontCSS !== null) return _fontCSS;
         try {
-            const link = document.querySelector('link[href*="fonts.googleapis"]');
-            const css = await (await fetch(link.href)).text();
+            const link = document.querySelector('link[href*="fonts.googleapis"]') as HTMLLinkElement | null;
+            const css = await (await fetch(link!.href)).text();
             const blocks = css.split('@font-face').slice(1).map(b => '@font-face' + b.slice(0, b.indexOf('}') + 1));
             let out = '';
             for (const b of blocks.filter(x => x.includes('U+0000-00FF'))) {
-                const u = b.match(/url\((https:[^)]+)\)/)[1];
+                const u = b.match(/url\((https:[^)]+)\)/)![1];
                 const arr = new Uint8Array(await (await fetch(u)).arrayBuffer());
-                let bin = ''; for (let i = 0; i < arr.length; i += 0x8000) bin += String.fromCharCode.apply(null, arr.subarray(i, i + 0x8000));
+                let bin = ''; for (let i = 0; i < arr.length; i += 0x8000) bin += String.fromCharCode.apply(null, arr.subarray(i, i + 0x8000) as unknown as number[]);
                 out += b.replace(u, `data:font/woff2;base64,${btoa(bin)}`);
             }
             _fontCSS = out;
@@ -584,9 +583,9 @@ export function mountEngine() {
         clone.setAttribute('viewBox', `${bb.x - pad} ${bb.y - pad} ${W} ${H}`);
         clone.setAttribute('width', W); clone.setAttribute('height', H);
         clone.querySelector('#gGuides')?.remove();
-        clone.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
+        clone.querySelectorAll('[style]').forEach((el: any) => el.removeAttribute('style'));
         for (const c of ['enter', 'dragging', 'dim', 'on', 'dimt', 'sel', 'drawing'])
-            clone.querySelectorAll('.' + c).forEach(el => el.classList.remove(c));
+            clone.querySelectorAll('.' + c).forEach((el: any) => el.classList.remove(c));
         const vars = THEME_VARS.map(n => `${n}:${cssVar(n)}`).join(';');
         const st = document.createElementNS(NS, 'style');
         let appCss = '';
@@ -599,7 +598,7 @@ export function mountEngine() {
         }
         return { str: new XMLSerializer().serializeToString(clone), W, H };
     }
-    function downloadBlob(blob, name) {
+    function downloadBlob(blob: any, name: any) {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob); a.download = name; a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 4000);
@@ -618,7 +617,7 @@ export function mountEngine() {
             const img = new Image();
             await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
             const c = document.createElement('canvas'); c.width = r.W * 2; c.height = r.H * 2;
-            const ctx = c.getContext('2d'); ctx.scale(2, 2); ctx.drawImage(img, 0, 0, r.W, r.H);
+            const ctx = c.getContext('2d')!; ctx.scale(2, 2); ctx.drawImage(img, 0, 0, r.W, r.H);
             URL.revokeObjectURL(url);
             c.toBlob(b => { downloadBlob(b, 'diagrama-er.png'); toast('PNG exportado (2×)'); }, 'image/png');
         } catch (e) { toast('Falha ao gerar PNG', 'err'); }
@@ -627,7 +626,7 @@ export function mountEngine() {
 
     /* ══════════ 14-ui.js ══════════ */
     /* ══════════ toasts / tema / painel / menus / docs ══════════ */
-    const toast = (msg, type = '') => showToast($('toasts'), msg, type);
+    const toast = (msg: any, type = '') => showToast($('toasts'), msg, type);
 
     function exportMMD() {
         if (!src.value.trim()) { toast('Nada para salvar', 'err'); return; }
@@ -652,7 +651,7 @@ export function mountEngine() {
         catch (e) { toast('Não foi possível copiar o link', 'err'); }
     };
 
-    function setTheme(t) {
+    function setTheme(t: any) {
         document.documentElement.dataset.theme = t; store.set('theme', t);
         $('btnTheme').dataset.theme = t;
     }
@@ -664,9 +663,9 @@ export function mountEngine() {
         document.body.classList.toggle('code-hidden', hidden);
     };
     $('btnShowCode').onclick = () => $('btnPanel').click();
-    $('btnExport').onclick = e => { e.stopPropagation(); exportMenu.classList.toggle('open'); };
-    document.addEventListener('click', e => { if (!e.target.closest('.menu-wrap')) exportMenu.classList.remove('open'); });
-    exportMenu.querySelectorAll('button').forEach(b => b.onclick = () => {
+    $('btnExport').onclick = (e: any) => { e.stopPropagation(); exportMenu.classList.toggle('open'); };
+    document.addEventListener('click', (e: any) => { if (!e.target.closest('.menu-wrap')) exportMenu.classList.remove('open'); });
+    exportMenu.querySelectorAll('button').forEach((b: any) => b.onclick = () => {
         exportMenu.classList.remove('open');
         if (b.dataset.x === 'svg') exportSVG();
         else if (b.dataset.x === 'png') exportPNG();
@@ -676,19 +675,19 @@ export function mountEngine() {
     optTransp.checked = store.get('transp') === '1';
     optTransp.onchange = () => store.set('transp', optTransp.checked ? '1' : '0');
 
-    function toggleDocs(open) {
+    function toggleDocs(open = true) {
         const o = open ?? !docs.classList.contains('open');
         docs.classList.toggle('open', o);
         docsBackdrop.classList.toggle('open', o);
     }
-    $('btnDocs').onclick = () => toggleDocs();
+    $('btnDocs').onclick = () => toggleDocs(true);
     $('btnDocsClose').onclick = () => toggleDocs(false);
     docsBackdrop.onclick = () => toggleDocs(false);
 
 
     /* ══════════ 16-snippets.js ══════════ */
     /* ══════════ snippets: slash commands + tabstops ══════════ */
-    const snipMenu = document.getElementById('snipMenu');
+    const snipMenu = document.getElementById('snipMenu') as HTMLElement;
     const SNIPPETS = [
         { cmd: '/table', desc: 'bloco de entidade { }', body: '${1:TABELA} {\n    ${2:string} ${3:campo}\n    ${4:string} ${5:campo}\n}' },
         { cmd: '/one-many', desc: 'um→muitos  ||--o{', body: '${1:TABELA} ||--o{ ${2:TABELA} : ${3:relacao}' },
@@ -704,8 +703,8 @@ export function mountEngine() {
         { cmd: '/seqmsg', desc: 'sequência: mensagem', body: '${1:Cliente} ->> ${2:Servidor} : ${3:requisição}' },
         { cmd: '/seqreply', desc: 'sequência: resposta tracejada', body: '${1:Servidor} -->> ${2:Cliente} : ${3:resposta}' }
     ];
-    let snipState = null;   /* { stops: [{start,len}], idx } */
-    let acList = [], acSel = 0, acCtx = null;
+    let snipState: any = null;   /* { stops: [{start,len}], idx } */
+    let acList: any = [], acSel = 0, acCtx: any = null;
 
     /* ── dicionários de autocomplete ── */
     const TYPES = [
@@ -721,7 +720,7 @@ export function mountEngine() {
         ['}o..o{', 'zero+ → zero+ (tracejada)'], ['}o..||', 'zero+ → um (tracejada)']
     ];
 
-    const monoCtx = document.createElement('canvas').getContext('2d');
+    const monoCtx = document.createElement('canvas').getContext('2d')!;
     function caretXY() {
         const cs = getComputedStyle(src);
         monoCtx.font = cs.font;
@@ -730,7 +729,7 @@ export function mountEngine() {
         const colTxt = before.slice(before.lastIndexOf('\n') + 1);
         const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.7;
         const cw = monoCtx.measureText('M').width || 7.5;
-        const wrap = document.querySelector('.code-wrap');
+        const wrap = document.querySelector('.code-wrap') as HTMLElement;
         return {
             x: clamp(parseFloat(cs.paddingLeft) + colTxt.length * cw - src.scrollLeft + 2, 0, wrap.clientWidth - 260),
             y: clamp(parseFloat(cs.paddingTop) + line * lh - src.scrollTop + 2, 0, wrap.clientHeight - 160)
@@ -743,7 +742,7 @@ export function mountEngine() {
         for (const m of src.value.matchAll(/([A-Za-z_][\w.\-]*)\s+(?:\|o|\|\||\}o|\}\|)\s*(?:--|\.\.|==)\s*(?:o\||\|\||o\{|\|\{)\s+([A-Za-z_][\w.\-]*)/g)) { set.add(m[1]); set.add(m[2]); }
         return [...set];
     }
-    function inEntityBlock(pos) {
+    function inEntityBlock(pos: any) {
         let depth = 0;
         for (const l of src.value.slice(0, pos).split('\n')) {
             const t = l.trim();
@@ -752,7 +751,7 @@ export function mountEngine() {
         }
         return depth > 0;
     }
-    function computeAc() {
+    function computeAc(): any {
         const pos = src.selectionStart;
         if (pos !== src.selectionEnd) return null;
         const before = src.value.slice(0, pos);
@@ -795,11 +794,11 @@ export function mountEngine() {
         else if (acCtx.mode === 'conn')
             acList = CONNS.filter(t => t[0].startsWith(acCtx.prefix)).map(t => ({ label: t[0], desc: t[1], insert: t[0] + ' ' }));
         else if (acCtx.mode === 'entity')
-            acList = entityNames().filter(n => n.toLowerCase().startsWith(p)).map(n => ({ label: n, desc: 'entidade', insert: n + ' ' }));
+            acList = (entityNames() as string[]).filter((n: string) => n.toLowerCase().startsWith(p)).map((n: string) => ({ label: n, desc: 'entidade', insert: n + ' ' }));
         if (!acList.length) { closeAc(); return; }
         acSel = 0;
         snipMenu.textContent = '';
-        acList.forEach((it, i) => {
+        acList.forEach((it: any, i: any) => {
             const d = document.createElement('div');
             d.className = 'snip-item' + (i === acSel ? ' on' : '');
             d.innerHTML = `<span class="cmd">${esc(it.label)}</span><span class="desc">${esc(it.desc)}</span>`;
@@ -810,7 +809,7 @@ export function mountEngine() {
         snipMenu.style.left = cp.x + 'px'; snipMenu.style.top = cp.y + 'px';
         snipMenu.classList.add('open');
     }
-    function acceptAc(item) {
+    function acceptAc(item: any) {
         if (acCtx.mode === 'slash') { acceptSnippet(item.snippet, acCtx.qr); return; }
         const pos = acCtx.wStart;
         pushHistory();
@@ -819,7 +818,7 @@ export function mountEngine() {
         lastLen = src.value.length; lastCaret = src.selectionStart; lastSel = src.selectionEnd;
         closeAc(); renderHighlight(); scheduleApply();
     }
-    function acceptSnippet(s, qr) {
+    function acceptSnippet(s: any, qr: any) {
         /* expande ${n:default}: texto completo + offsets reais dos tabstops */
         const stops = [];
         let text = '', last = 0, m;
@@ -845,7 +844,7 @@ export function mountEngine() {
         if (snipState) jumpStop(0);
         renderHighlight(); scheduleApply();
     }
-    function jumpStop(i) {
+    function jumpStop(i: any) {
         const st = snipState.stops[i];
         if (!st) { snipState = null; return; }
         snipState.idx = i;
@@ -855,7 +854,7 @@ export function mountEngine() {
         lastLen = src.value.length; lastCaret = st.start; lastSel = st.start + st.len;
     }
     /* mantém tabstops consistentes enquanto digita dentro do snippet */
-    function snipAdjust(caretBefore, removed, inserted) {
+    function snipAdjust(caretBefore: any, removed: any, inserted: any) {
         if (!snipState) return;
         const delta = inserted - removed;
         for (const st of snipState.stops) {
@@ -867,7 +866,7 @@ export function mountEngine() {
 
     /* ══════════ 17-gutter.js ══════════ */
     /* ══════════ gutter: numeração de linhas ══════════ */
-    const gutter = document.getElementById('gutter'), gutterIn = document.getElementById('gutterIn');
+    const gutter = document.getElementById('gutter')!, gutterIn = gutter.querySelector('div') as HTMLElement;
     let gutterCount = -1;
     function updateGutter() {
         const n = src.value.split('\n').length;
@@ -876,7 +875,7 @@ export function mountEngine() {
             gutterIn.textContent = '';
             for (let i = 1; i <= n; i++) {
                 const s = document.createElement('span');
-                s.textContent = i;
+                s.textContent = String(i);
                 gutterIn.append(s);
             }
         }
@@ -889,10 +888,10 @@ export function mountEngine() {
     /* ══════════ 18-undo.js ══════════ */
     /* ══════════ undo / redo ══════════ */
     const hist = createHistory();
-    let beforeState = null;
+    let beforeState: any = null;
     const snapState = () => ({ value: src.value, s: src.selectionStart, e: src.selectionEnd });
     function pushHistory() { hist.push(snapState()); }
-    function restoreState(h) {
+    function restoreState(h: any) {
         src.value = h.value;
         src.selectionStart = h.s; src.selectionEnd = h.e;
         lastLen = h.value.length; lastCaret = h.s; lastSel = h.e; snipState = null;
@@ -911,15 +910,15 @@ export function mountEngine() {
 
     /* ══════════ 19-editor-events.js ══════════ */
     /* ══════════ editor: eventos ══════════ */
-    let applyT = null;
+    let applyT: any = null;
     function scheduleApply() {
-        if (document.getElementById('snipMenu').classList.contains('open')) return; /* aguarda snippet ser resolvido */
+        if (snipMenu.classList.contains('open')) return; /* aguarda snippet ser resolvido */
         clearTimeout(applyT);
         applyT = setTimeout(() => {
             applySource(src.value);
         }, 600);
     }
-    function applyNow(showToast) {
+    function applyNow(showToast: any) {
         const ok = applySource(src.value);
         if (showToast) toast(ok ? 'Diagrama atualizado' : 'Corrija os erros no código', ok ? '' : 'err');
     }
@@ -943,7 +942,7 @@ export function mountEngine() {
     src.addEventListener('click', () => { snipState = null; closeAc(); updateGutter(); editorFocusEntity(); });
 
     /* clique no editor → foca/destaca a entidade no canvas */
-    const entityAtCaret = pos => entityAtCaretPure(src.value, pos, new Set(Object.keys(byId)));
+    const entityAtCaret = (pos: any) => entityAtCaretPure(src.value, pos, new Set(Object.keys(byId)));
 
     function editorFocusEntity() {
         const name = entityAtCaret(src.selectionStart);
@@ -954,7 +953,7 @@ export function mountEngine() {
         const w = clamp(rw / 3.2, e.w * 3, rw / 1.6);
         animateCam({ x: e.x + e.w / 2 - w / 2, y: e.y + e.h / 2 - w * (rh / rw) / 2, w }, 420);
     }
-    src.addEventListener('keydown', e => {
+    src.addEventListener('keydown', (e: any) => {
         const menuOpen = snipMenu.classList.contains('open');
         if (menuOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
             e.preventDefault();
@@ -1073,7 +1072,7 @@ export function mountEngine() {
     window.addEventListener('keydown', e => {
         if (e.key === 'Escape') { exportMenu.classList.remove('open'); toggleDocs(false); selectedId = null; updateFocus(); }
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); applyNow(true); }
-        const tag = document.activeElement && document.activeElement.tagName;
+        const tag: string | undefined = document.activeElement?.tagName;
         if (e.key === '?' && tag !== 'TEXTAREA' && tag !== 'INPUT') { e.preventDefault(); toggleDocs(); }
         if (!e.ctrlKey && !e.metaKey && !e.altKey && tag !== 'TEXTAREA' && (e.key === 'f' || e.key === 'F')) organize();
         if (!e.ctrlKey && !e.metaKey && !e.altKey && tag !== 'TEXTAREA' && (e.key === 'p' || e.key === 'P')) setPreview(!previewMode);
@@ -1081,7 +1080,7 @@ export function mountEngine() {
     $('btnFormat').onclick = () => formatCode();
     $('btnOrganize').onclick = organize;
     const btnPreview = $('btnPreview');
-    function setPreview(v) {
+    function setPreview(v: any) {
         previewMode = v;
         btnPreview.setAttribute('aria-pressed', String(v));
         btnPreview.classList.toggle('on', v);
@@ -1093,7 +1092,7 @@ export function mountEngine() {
     const layoutSel = $('layoutSel');
     layoutSel.addEventListener('change', () => {
         store.set('layout', layoutSel.value);
-        toast({ force: 'Organização orgânica', layered: 'Organização hierárquica', compact: 'Organização compacta' }[layoutSel.value]);
+        toast(({ force: 'Organização orgânica', layered: 'Organização hierárquica', compact: 'Organização compacta' } as any)[layoutSel.value]);
         organize();
     });
     $('btnZoomIn').onclick = () => zoomBy(1.3);
@@ -1111,17 +1110,17 @@ export function mountEngine() {
         mindmap: 'mindmap\n    root((Tema))\n        Ramo A\n            Folha\n        Ramo B',
         c4: 'C4Context\n    title Exemplo\n    Person(user, "Cliente", "Usa o sistema")\n    System(app, "Aplicação", "Core do produto")\n    SystemDb(db, "Banco", "PostgreSQL")\n    Rel(user, app, "Usa", "HTTPS")\n    Rel(app, db, "Persiste", "SQL")'
     };
-    $('typeSel').onchange = e => {
-        const t = e.target.value;
-        if (!t || !BLANK_HDR[t]) return;
+    $('typeSel').onchange = (e: any) => {
+        const t = (e.target as HTMLSelectElement).value;
+        if (!t || !(BLANK_HDR as any)[t]) return;
         positions = {}; store.set('pos', '{}');
-        src.value = BLANK_HDR[t];
+        src.value = (BLANK_HDR as any)[t];
         renderHighlight(); updateGutter();
         applySource(src.value, { resetLayout: true, mode: layoutSel.value });
         fitView(true);
         toast('Novo diagrama de exemplo — edite o código à vontade');
     };
-    $('examples').onchange = e => {
+    $('examples').onchange = (e: any) => {
         positions = {}; store.set('pos', '{}');
         src.value = EXAMPLES[+e.target.value].code;
         renderHighlight(); updateGutter();
@@ -1135,21 +1134,21 @@ export function mountEngine() {
     /* ══════════ painel redimensionável ══════════ */
     const panelResize = $('panelResize');
     {
-        const savedW = parseInt(store.get('panelW'));
+        const savedW = parseInt(store.get('panelW') || '', 10);
         if (savedW >= 260 && savedW <= 720) panel.style.width = savedW + 'px';
     }
-    panelResize.addEventListener('pointerdown', e => {
+    panelResize.addEventListener('pointerdown', (e: any) => {
         if (panel.classList.contains('hidden')) return;
         e.preventDefault();
         panelResize.setPointerCapture(e.pointerId);
         panelResize.classList.add('dragging');
         panel.classList.add('resizing');
         const startX = e.clientX, startW = panel.getBoundingClientRect().width;
-        const move = ev => {
+        const move = (ev: any) => {
             const w = clamp(Math.round(startW + (ev.clientX - startX)), 260, 720);
             panel.style.width = w + 'px';
         };
-        const up = ev => {
+        const up = (_ev: PointerEvent) => {
             panelResize.releasePointerCapture(e.pointerId);
             panelResize.classList.remove('dragging');
             panel.classList.remove('resizing');
@@ -1168,18 +1167,18 @@ export function mountEngine() {
     /* ── tabs da documentação ── */
     const docsTabs = $('docsTabs');
     const docsSections = [...document.querySelectorAll('#docs .docs-body section[data-tab]')];
-    function setDocsTab(tab) {
-        docsTabs.querySelectorAll('.dt-tab').forEach(b => {
+    function setDocsTab(tab: any) {
+        docsTabs.querySelectorAll('.dt-tab').forEach((b: any) => {
             const on = b.dataset.tab === tab;
             b.classList.toggle('on', on);
             b.setAttribute('aria-selected', String(on));
         });
-        docsSections.forEach(s => s.classList.toggle('on', s.dataset.tab === tab));
+        docsSections.forEach((s: any) => s.classList.toggle('on', s.dataset.tab === tab));
     }
-    docsTabs.querySelectorAll('.dt-tab').forEach(b => b.onclick = () => setDocsTab(b.dataset.tab));
+    docsTabs.querySelectorAll('.dt-tab').forEach((b: any) => b.onclick = () => setDocsTab(b.dataset.tab));
     setDocsTab('geral');
 
-    function insertTemplate(tpl) {
+    function insertTemplate(tpl: any) {
         const s = src.selectionStart ?? src.value.length, e = src.selectionEnd ?? s;
         const before = src.value.slice(0, s), after = src.value.slice(e);
         const pad = before && !before.endsWith('\n') ? '\n' : '';
@@ -1192,7 +1191,7 @@ export function mountEngine() {
         toggleDocs(false);
         toast('Gabarito inserido — substitua as entidades');
     }
-    document.querySelectorAll('.chip[data-tpl]').forEach(b => b.addEventListener('click', () => insertTemplate(b.dataset.tpl)));
+    document.querySelectorAll('.chip[data-tpl]').forEach((b: any) => b.addEventListener('click', () => insertTemplate(b.dataset.tpl)));
 
 
     /* ══════════ inicialização ══════════ */
@@ -1212,7 +1211,7 @@ export function mountEngine() {
                 document.fonts.load('600 9.5px "JetBrains Mono"')
             ]);
         } catch (e) { }
-        try { positions = JSON.parse(store.get('pos')) || {}; } catch (e) { positions = {}; }
+        try { positions = JSON.parse(store.get('pos') || '{}') || {}; } catch { positions = {}; }
         const shared = loadSharedCode();
         const saved = shared ?? store.get('code');
         src.value = saved ?? EXAMPLES[0].code;
