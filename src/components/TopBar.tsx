@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Button } from '../shared/Button';
 import { Icon } from '../shared/Icon';
 import { Select, type SelectOption } from '../shared/Select';
@@ -30,9 +29,6 @@ const EXPORT_FORMATS: { x: 'mmd' | 'svg' | 'png'; label: string; hint: string }[
 ];
 
 export function TopBar() {
-    const [selectedType, setSelectedType] = useState<string>('');
-    const [selectedExample, setSelectedExample] = useState<string>('');
-
     return (
         <header id="topbar">
             <div className="brand" aria-hidden="true">
@@ -63,15 +59,11 @@ export function TopBar() {
                     aria-label="Tipo de diagrama para começar do zero"
                     placeholder="Tipo…"
                     options={DIAGRAM_TYPES}
-                    value={selectedType}
-                    onChange={setSelectedType}
                 />
                 <Select 
                     id="examples" 
                     aria-label="Exemplos de diagramas" 
                     options={EXAMPLES}
-                    value={selectedExample}
-                    onChange={setSelectedExample}
                 />
 
                 <span className="vsep" />

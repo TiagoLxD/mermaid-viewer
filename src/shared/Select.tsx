@@ -12,32 +12,28 @@ export interface SelectProps {
     options: SelectOption[];
     /** texto da opção neutra (ex.: "Tipo…") — renderiza com value="" */
     placeholder?: string;
-    /** valor selecionado */
-    value?: string;
-    /** callback quando o valor muda */
-    onChange?: (value: string) => void;
     /** classe CSS adicional */
     className?: string;
     /** desabilita o componente */
     disabled?: boolean;
 }
 
-/** Select custom moderno e premium sem usar tag select nativa. */
+/** Select custom moderno e premium com select nativo oculto para compatibilidade com engine. */
 export function Select({ 
     id, 
     options, 
     placeholder, 
-    value, 
-    onChange, 
     className = 'select',
     disabled = false 
 }: SelectProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [focusedIndex, setFocusedIndex] = useState(-1);
+    const [selectedValue, setSelectedValue] = useState('');
     const triggerRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const nativeSelectRef = useRef<HTMLSelectElement>(null);
 
-    const selectedOption = options.find(o => o.value === value);
+    const selectedOption = options.find(o => o.value === selectedValue);
     const displayValue = selectedOption?.label || placeholder || '';
 
     useEffect(() => {
@@ -61,6 +57,24 @@ export function Select({
         };
     }, [isOpen]);
 
+    // Sincroniza o estado local com o select nativo (controlado pelo engine)
+    useEffect(() => {
+        if (nativeSelectRef.current) {
+            const handleNativeChange = () => {
+                setSelectedValue(nativeSelectRef.current?.value || '');
+            };
+            
+            nativeSelectRef.current.addEventListener('change', handleNativeChange);
+            
+            // Valor inicial
+            setSelectedValue(nativeSelectRef.current?.value || '');
+            
+            return () => {
+                nativeSelectRef.current?.removeEventListener('change', handleNativeChange);
+            };
+        }
+    }, []);
+
     const handleTriggerClick = () => {
         if (!disabled) {
             setIsOpen(!isOpen);
@@ -69,8 +83,16 @@ export function Select({
     };
 
     const handleOptionClick = (optionValue: string) => {
-        onChange?.(optionValue);
+        setSelectedValue(optionValue);
         setIsOpen(false);
+        
+        // Sincroniza com o select nativo para o engine
+        if (nativeSelectRef.current) {
+            nativeSelectRef.current.value = optionValue;
+            // Dispara o evento onchange manualmente para o engine
+            const event = new Event('change', { bubbles: true });
+            nativeSelectRef.current.dispatchEvent(event);
+        }
     };
 
     const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -115,6 +137,23 @@ export function Select({
 
     return (
         <div className={className}>
+            {/* Select nativo oculto para compatibilidade com engine */}
+            <select
+                ref={nativeSelectRef}
+                id={id}
+                className="select-native"
+                style={{ display: 'none' }}
+                tabIndex={-1}
+            >
+                {placeholder && <option value="">{placeholder}</option>}
+                {options.map((o) => (
+                    <option key={o.value} value={o.value}>
+                        {o.label}
+                    </option>
+                ))}
+            </select>
+
+            {/* Trigger custom visível */}
             <div
                 ref={triggerRef}
                 className="select-trigger"
@@ -144,10 +183,10 @@ export function Select({
                     {options.map((option, index) => (
                         <div
                             key={option.value}
-                            className={`select-option ${focusedIndex === index ? 'focused' : ''} ${value === option.value ? 'selected' : ''}`}
+                            className={`select-option ${focusedIndex === index ? 'focused' : ''} ${selectedValue === option.value ? 'selected' : ''}`}
                             onClick={() => handleOptionClick(option.value)}
                             role="option"
-                            aria-selected={value === option.value}
+                            aria-selected={selectedValue === option.value}
                         >
                             {option.label}
                         </div>
