@@ -101,8 +101,11 @@ function layeredInto(nodes: LNode[], links: Link[], n: number, GX = GAP_X, GY = 
                 if (posX[r][k] < min) posX[r][k] = min;
             }
             for (let k = row.length - 2; k >= 0; k--) {
+                /* piso: nunca descer abaixo do vizinho esquerdo — o
+                   max-pass sem piso invertia a ordem e sobrepunha */
+                const floor = k > 0 ? posX[r][k - 1] + nodes[row[k - 1]].w + GX : -Infinity;
                 const max = posX[r][k + 1] - nodes[row[k]].w - GX;
-                if (posX[r][k] > max) posX[r][k] = max;
+                posX[r][k] = Math.min(posX[r][k], Math.max(floor, max));
             }
             /* pai com filhos em linhas distantes: desliza até o eixo
                deles por último — na próxima iteração o max-pass abre
@@ -143,7 +146,11 @@ function layeredInto(nodes: LNode[], links: Link[], n: number, GX = GAP_X, GY = 
     for (let rep = 0; rep < 24; rep++) {
         rows.forEach((row, r) => {
             for (const i of row) {
-                const others = succ[i].filter(k => level[k] !== level[i] + 1);
+                /* TODOS os filhos: o agrupamento de família pode ter sido
+                   barrado pelo min-pass (vizinho esquerdo), deixando o
+                   filho longe do pai — sem isso, pai solitário fica
+                   esquecido numa ponta da tela */
+                const others = succ[i];
                 if (!others.length) continue;
                 const cx = others.reduce((s, k) => s + posX[level[k]][xIdx[k]] + nodes[k].w / 2, 0) / others.length;
                 const want = cx - nodes[i].w / 2;
@@ -161,10 +168,58 @@ function layeredInto(nodes: LNode[], links: Link[], n: number, GX = GAP_X, GY = 
                 if (posX[r][k] < min) posX[r][k] = min;
             }
             for (let k = row.length - 2; k >= 0; k--) {
+                const floor = k > 0 ? posX[r][k - 1] + nodes[row[k - 1]].w + GAP_X : -Infinity;
                 const max = posX[r][k + 1] - nodes[row[k]].w - GAP_X;
-                if (posX[r][k] > max) posX[r][k] = max;
+                posX[r][k] = Math.min(posX[r][k], Math.max(floor, max));
             }
         });
+    }
+    /* folhas órfãs: o alinhamento acima só move pais para os filhos.
+       Nós SEM filhos podem ter ficado numa ponta (prefixo arrastado
+       pelos slides dos pais). Aproxima cada nó do eixo médio dos seus
+       vizinhos SEM empurrar ninguém — só anda se houver folga entre
+       os vizinhos da própria linha */
+    for (let rep = 0; rep < 24; rep++) {
+        let moved = false;
+        rows.forEach((row, r) => {
+            row.forEach((i, k) => {
+                const nb = [...pred[i], ...succ[i]];
+                if (!nb.length) return;
+                const cx = nb.reduce((s, x) => s + posX[level[x]][xIdx[x]] + nodes[x].w / 2, 0) / nb.length;
+                const want = cx - nodes[i].w / 2;
+                const min = k > 0 ? posX[r][k - 1] + nodes[row[k - 1]].w + GAP_X : -Infinity;
+                const max = k + 1 < row.length ? posX[r][k + 1] - nodes[i].w - GAP_X : Infinity;
+                const clamped0 = Math.min(max, Math.max(min, want));
+                let clamped = clamped0;
+                /* sem folga à direita do próprio slot: usa a folga dos
+                   vizinhos da direita (cascata) — ninguém sai do slot,
+                   só consumimos espaço morto entre eles */
+                if (want > clamped0 + 0.5) {
+                    /* capacidade acumulada da cauda direita: cap[j] = quanto
+                   os nós [j..fim] podem abrir de espaço somados, cada um
+                   derivando até encostar no seguinte */
+                    const caps = new Array(row.length).fill(0);
+                    for (let j = row.length - 1; j > k; j--) {
+                        const mx = j + 1 < row.length ? posX[r][j + 1] - nodes[row[j]].w - GAP_X : Infinity;
+                        const room = mx === Infinity ? Infinity : Math.max(0, mx - posX[r][j]);
+                        caps[j] = mx === Infinity ? Infinity : room + caps[j + 1];
+                    }
+                    const delta = Math.min(want - clamped0, caps[k + 1]);
+                    if (delta > 0.5) {
+                        posX[r][k] += delta;
+                        /* min-pass na cauda: cada vizinho anda só o
+                           necessário para abrir espaço */
+                        for (let j = k + 1; j < row.length; j++) {
+                            const mn = posX[r][j - 1] + nodes[row[j - 1]].w + GAP_X;
+                            if (posX[r][j] < mn) posX[r][j] = mn;
+                        }
+                        clamped = posX[r][k];
+                    }
+                }
+                if (Math.abs(clamped - posX[r][k]) > 0.5) { posX[r][k] = clamped; moved = true; }
+            });
+        });
+        if (!moved) break;
     }
     /* offset ÚNICO para todas as linhas: qualquer diferença de off
        entre linhas quebraria os eixos pai↔filho já alinhados */
