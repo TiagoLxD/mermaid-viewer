@@ -646,19 +646,21 @@ export function mountEngine() {
     }
     let acXY = { x: 0, y: 0 };
 
-    const monoCtx = document.createElement('canvas').getContext('2d')!;
+    /* jsdom não fornece contexto 2d (sem node-canvas) — usa fallback monoespaçado */
+    const monoCtx = document.createElement('canvas').getContext('2d');
+    const FALLBACK_CW = 7.5;
     function caretXY() {
         const cs = getComputedStyle(src);
-        monoCtx.font = cs.font;
+        if (monoCtx) monoCtx.font = cs.font;
         const pos = src.selectionStart, before = src.value.slice(0, pos);
         const line = before.split('\n').length - 1;
         const colTxt = before.slice(before.lastIndexOf('\n') + 1);
         const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.7;
-        const cw = monoCtx.measureText('M').width || 7.5;
-        const wrap = document.querySelector('.code-wrap') as HTMLElement;
+        const cw = (monoCtx ? monoCtx.measureText('M').width : 0) || FALLBACK_CW;
+        const wrap = document.querySelector('.code-wrap') as HTMLElement | null;
         return {
-            x: clamp(parseFloat(cs.paddingLeft) + colTxt.length * cw - src.scrollLeft + 2, 0, wrap.clientWidth - 260),
-            y: clamp(parseFloat(cs.paddingTop) + line * lh - src.scrollTop + 2, 0, wrap.clientHeight - 160)
+            x: clamp(parseFloat(cs.paddingLeft) + colTxt.length * cw - src.scrollLeft + 2, 0, (wrap?.clientWidth ?? 600) - 260),
+            y: clamp(parseFloat(cs.paddingTop) + line * lh - src.scrollTop + 2, 0, (wrap?.clientHeight ?? 400) - 160)
         };
     }
     function closeAc() {
@@ -759,7 +761,7 @@ export function mountEngine() {
     /* ══════════ editor: eventos ══════════ */
     let applyT: any = null;
     function scheduleApply() {
-        if (acOpen) return; /* aguarda snippet ser resolvido */
+        if (snipState) return; /* aguarda snippet ser resolvido (autocomplete não bloqueia apply) */
         clearTimeout(applyT);
         applyT = setTimeout(() => {
             applySource(src.value);
