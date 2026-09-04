@@ -223,12 +223,14 @@ span[data-icon] {
 }
 
 .select {
-    position: relative
+    position: relative;
+    width: fit-content
 }
 
-select {
-    appearance: none;
-    -webkit-appearance: none;
+.select-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     height: 33px;
     padding: 0 30px 0 12px;
     border: 1px solid var(--line2);
@@ -238,20 +240,108 @@ select {
     font: 500 12.5px var(--sans);
     cursor: pointer;
     outline: none;
-    max-width: 160px
+    max-width: 160px;
+    transition: border-color .15s, background .15s, box-shadow .15s;
+    user-select: none
 }
 
-select:hover {
+.select-trigger:hover {
     border-color: var(--ink3)
 }
 
-.select>span[data-icon] {
-    position: absolute;
-    right: 9px;
-    top: 50%;
-    translate: 0 -50%;
-    pointer-events: none;
+.select-trigger:focus-visible {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--pkbg)
+}
+
+.select-trigger:disabled {
+    opacity: .5;
+    cursor: not-allowed
+}
+
+.select-value {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.select-chevron {
+    transition: transform .2s ease;
     color: var(--ink3)
+}
+
+.select-chevron.open {
+    transform: rotate(180deg)
+}
+
+.select-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    box-shadow: var(--shadow);
+    padding: 6px;
+    z-index: 50;
+    max-height: 250px;
+    overflow-y: auto;
+    animation: slideDown .16s ease-out
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(.98)
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1)
+    }
+}
+
+.select-option {
+    padding: 8px 11px;
+    border-radius: 7px;
+    cursor: pointer;
+    font: 500 12.5px var(--sans);
+    color: var(--ink);
+    transition: background .15s, color .15s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.select-option:hover {
+    background: var(--surface2);
+    color: var(--ink)
+}
+
+.select-option.focused {
+    background: var(--surface2);
+    color: var(--ink)
+}
+
+.select-option.selected {
+    background: var(--pkbg);
+    color: var(--accent);
+    font-weight: 600
+}
+
+.select-dropdown::-webkit-scrollbar {
+    width: 8px
+}
+
+.select-dropdown::-webkit-scrollbar-thumb {
+    background: var(--line2);
+    border-radius: 4px;
+    border: 2px solid var(--surface)
+}
+
+.select-dropdown::-webkit-scrollbar-track {
+    background: transparent
 }
 
 .menu-wrap {
