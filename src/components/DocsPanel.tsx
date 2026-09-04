@@ -35,22 +35,23 @@ export function DocsPanel() {
                     />
                 </div>
 
-                <div id="docsTabs" role="tablist" aria-label="Tipo de diagrama">
-                    {TABS.map(({ tab, label }) => (
-                        <button
-                            key={tab}
-                            type="button"
-                            className={`dt-tab${tab === 'geral' ? ' on' : ''}`}
-                            data-tab={tab}
-                            role="tab"
-                            aria-selected={tab === 'geral'}
-                        >
-                            {label}
-                        </button>
-                    ))}
-                </div>
+                <div className="docs-layout">
+                    <div id="docsTabs" role="tablist" aria-label="Tipo de diagrama">
+                        {TABS.map(({ tab, label }) => (
+                            <button
+                                key={tab}
+                                type="button"
+                                className={`dt-tab${tab === 'geral' ? ' on' : ''}`}
+                                data-tab={tab}
+                                role="tab"
+                                aria-selected={tab === 'geral'}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
 
-                <div className="docs-body">
+                    <div className="docs-body">
                     {/* ── geral ── */}
                     <section data-tab="geral">
                         <h4>Como funciona</h4>
@@ -360,6 +361,7 @@ export function DocsPanel() {
                             </span>
                         </div>
                     </section>
+                </div>
                 </div>
             </aside>
         </>

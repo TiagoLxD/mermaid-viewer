@@ -1523,35 +1523,48 @@ textarea::-webkit-scrollbar-thumb {
     flex: none
 }
 
+.docs-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden
+}
+
 #docsTabs {
     display: flex;
-    gap: 2px;
-    padding: 6px 12px 0;
-    border-bottom: 1px solid var(--line);
-    flex: none;
-    flex-wrap: wrap
+    flex-direction: column;
+    gap: 1px;
+    padding: 8px 0;
+    border-right: 1px solid var(--line);
+    flex: 0 0 auto;
+    width: 140px;
+    overflow-y: auto
 }
 
 .dt-tab {
     font: 600 11px var(--mono);
-    padding: 8px 12px;
+    padding: 10px 12px;
     border: 0;
     background: none;
     color: var(--ink3);
     cursor: pointer;
-    border-radius: 8px 8px 0 0;
-    border-bottom: 2px solid transparent;
+    border-radius: 0 8px 8px 0;
+    border-left: 3px solid transparent;
+    text-align: left;
     white-space: nowrap;
-    transition: color .15s
+    transition: color .15s, background .15s
 }
 
 .dt-tab:hover {
-    color: var(--ink2)
+    color: var(--ink2);
+    background: var(--surface2)
 }
 
 .dt-tab.on {
     color: var(--accent);
-    border-bottom-color: var(--accent)
+    background: var(--pkbg);
+    border-left-color: var(--accent);
+    font-weight: 700
 }
 
 /* botão flutuante: reaparece com o painel de código oculto */
