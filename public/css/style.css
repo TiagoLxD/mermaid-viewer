@@ -1537,7 +1537,7 @@ textarea::-webkit-scrollbar-thumb {
     padding: 8px 0;
     border-right: 1px solid var(--line);
     flex: 0 0 auto;
-    width: 140px;
+    width: 180px;
     overflow-y: auto
 }
 
