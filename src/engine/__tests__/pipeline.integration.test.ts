@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import { act } from 'react';
 
 /* ══════════ integração: fixture DOM → mountEngine → pipeline parse→cena ══════════ */
 
@@ -65,15 +66,18 @@ const srcEl = () => document.getElementById('src') as unknown as HTMLTextAreaEle
 
 async function applyCode(code: string) {
     const s = srcEl();
-    s.value = code;
-    s.dispatchEvent(new Event('input', { bubbles: true }));
-    /* scheduleApply tem debounce de 600ms */
-    await vi.advanceTimersByTimeAsync(700);
+    /* updates de React (cena via createRoot) precisam de act(...) */
+    await act(async () => {
+        s.value = code;
+        s.dispatchEvent(new Event('input', { bubbles: true }));
+        /* scheduleApply tem debounce de 600ms */
+        await vi.advanceTimersByTimeAsync(700);
+    });
 }
 
 describe('pipeline applySource → cena', () => {
     it('exemplo default (ER) renderiza tabelas, arestas e símbolos', async () => {
-        await vi.advanceTimersByTimeAsync(100);
+        await act(async () => { await vi.advanceTimersByTimeAsync(100); });
         expect(count('#gTables g.table')).toBe(11);
         expect(count('#gEdges g.edge')).toBe(13);
         expect(count('#gTop .e-mk')).toBe(26);
