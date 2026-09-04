@@ -1529,7 +1529,7 @@ textarea::-webkit-scrollbar-thumb {
     padding: 6px 12px 0;
     border-bottom: 1px solid var(--line);
     flex: none;
-    overflow-x: auto
+    flex-wrap: wrap
 }
 
 .dt-tab {

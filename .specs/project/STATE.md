@@ -4,29 +4,28 @@
 
 - 2026-09-03: Motor 100% TypeScript, strict limpo. Render em duas camadas
   (React estrutural / atributos diretos por frame). SceneBridge isola a cena.
-- 2026-09-03: **UI declarativa** — engine não cria DOM de interface:
-  - Toasts: store pub/sub (`toast.ts`) + `<Toasts>`;
-  - Gutter/SnippetMenu/Highlight: componentes do EditorPanel alimentados por
-    `state/ui-bus.ts` (CustomEvents: meridian:gutter / meridian:ac /
-    meridian:highlight; aceitação volta por meridian:ac-accept);
-  - Guias de alinhamento e rects do minimapa: `SceneBridge`
-    (setGuides/clearGuides/drawMinimap/clearMinimap).
-  DOM criado pelo engine restante: só export (style/link/canvas do PNG).
-- 2026-09-03: `snippets.ts` puro; estado central tipado; integração jsdom
-  (73 testes); CI (tsc + vitest + build; deploy com gate de testes).
+- 2026-09-03: **UI 100% declarativa** — Toasts, Gutter, SnippetMenu, Highlight,
+  ExportMenu são componentes React; engine publica estado por bus
+  (state/ui-bus.ts: meridian:gutter/ac/highlight/export/transp + ac-accept).
+  Guias e minimapa na SceneBridge. DOM criado pelo engine: só export de arquivo
+  (style/link/canvas/download) e medição de caret.
+- 2026-09-03: `export.ts`: buildExportSVG (clone+limpeza+tema+fontes embutidas),
+  getFontCSS cacheado, downloadBlob. `measure.ts`: whenFontsReady (motivo:
+  medição de texto do canvas precisa das métricas finais antes do 1º layout).
+- 2026-09-03: Estado central tipado (SceneModel/Ent/EdgeGeom); snippets puros;
+  integração jsdom (73 testes); CI (tsc+vitest+build; deploy com gate).
 
 ## Blockers / riscos
 
 - `engine.ts` ainda usa `any` em handlers locais — apertar aos poucos.
-- Bus por CustomEvents em window: nominal, mas não tipado end-to-end
-  (evolução: eventos tipados).
+- Bus por CustomEvents em window: não tipado end-to-end.
 
 ## Todos / ideias
 
 - Testes de interação jsdom (drag via PointerEvent sintético).
 - Badge de status do CI no README.
-- Export de SVG/PNG pode virar módulo `export.ts` puro-ish (último bloco
-  grande dentro do engine).
+- Dividir engine.ts por concerns (camera.ts, drag.ts, editor-events.ts) —
+  hoje coeso via closures de estado compartilhado; exigiria rearranjo de estado.
 
 ## Preferências
 
