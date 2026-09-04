@@ -40,11 +40,6 @@ export function mountEngine() {
         docs = $('docs'), docsBackdrop = $('docsBackdrop');
 
     const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
-    /* aplica o tema salvo imediatamente — evita flash de tema errado no load */
-    try {
-        const t0 = localStorage.getItem('meridian:theme');
-        if (t0) document.documentElement.dataset.theme = t0;
-    } catch (e) { }
 
     /* ══════════ 04-measure.js ══════════ */
     /* ══════════ medidas das tabelas ══════════ */
@@ -617,9 +612,17 @@ export function mountEngine() {
     };
 
     function setTheme(t: any) {
-        document.documentElement.dataset.theme = t; store.set('theme', t);
+        document.documentElement.dataset.theme = t;
         $('btnTheme').dataset.theme = t;
+        // Notifica o sistema React sobre mudança de tema (sistema gerencia persistência automaticamente)
+        window.dispatchEvent(new CustomEvent('theme-change', { detail: { theme: t } }));
     }
+    // Listener para responder a mudanças de tema do sistema React
+    window.addEventListener('theme-sync', (e: any) => {
+        const theme = e.detail.theme;
+        document.documentElement.dataset.theme = theme;
+        $('btnTheme').dataset.theme = theme;
+    });
     $('btnTheme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
     $('btnPanel').onclick = () => {
         panel.classList.toggle('hidden');
@@ -1053,7 +1056,11 @@ export function mountEngine() {
 
     /* ══════════ inicialização ══════════ */
     async function init() {
-        setTheme(store.get('theme') || 'light');
+        // Aplica o tema salvo automaticamente pelo sistema
+        const savedTheme = store.get('theme') || 'light';
+        document.documentElement.dataset.theme = savedTheme;
+        $('btnTheme').dataset.theme = savedTheme;
+
         if (store.get('panel') === '0' || innerWidth < 861) {
             panel.classList.add('hidden');
             document.body.classList.add('code-hidden');

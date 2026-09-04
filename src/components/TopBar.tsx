@@ -113,7 +113,7 @@ export function TopBar() {
                         <Icon name="chevD" size={14} />
                     </Button>
                     {open && (
-                        <div id="exportMenu" className="menu">
+                        <div id="exportMenu" className="menu open">
                             {EXPORT_FORMATS.map(({ x, label, hint }) => (
                                 <button key={x} type="button" onClick={() => doExport(x)}>
                                     {label} <small>{hint}</small>
