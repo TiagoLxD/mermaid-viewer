@@ -7,7 +7,7 @@ import { createSceneBridge } from './scene-bridge';
 import { expandAt, adjustStops, computeAcContext, acOptions, isInsideEntityBlock, type ResolvedStop } from './snippets';
 import { toast } from './toast';
 import { buildExportSVG, downloadBlob, type ExportSvgParams } from './export';
-import { onExport, onTransparent, type ExportFormat } from '../state/ui-bus';
+import { onExport, onNew, onLoadCode, onTransparent, type ExportFormat } from '../state/ui-bus';
 import { publishAc, publishGutter, publishHighlight, onAcAccept } from '../state/ui-bus';
 import { computeEdges, type EdgeGeom } from './edges-geom';
 import type { Entity, ParseResult } from './types';
@@ -970,56 +970,45 @@ export function mountEngine() {
         mindmap: 'mindmap\n    root((Tema))\n        Ramo A\n            Folha\n        Ramo B',
         c4: 'C4Context\n    title Exemplo\n    Person(user, "Cliente", "Usa o sistema")\n    System(app, "Aplicação", "Core do produto")\n    SystemDb(db, "Banco", "PostgreSQL")\n    Rel(user, app, "Usa", "HTTPS")\n    Rel(app, db, "Persiste", "SQL")'
     };
-    $('typeSel').onchange = (e: any) => {
+    const typeSel = $('typeSel') as HTMLSelectElement | null;
+    if (typeSel) typeSel.onchange = (e: any) => {
         const t = (e.target as HTMLSelectElement).value;
         if (!t || !(BLANK_HDR as any)[t]) return;
-        positions = {}; store.set('pos', '{}');
-        src.value = (BLANK_HDR as any)[t];
-        renderHighlight(); updateGutter();
-        applySource(src.value, { resetLayout: true, mode: layoutSel.value });
-        fitView(true);
+        loadCode((BLANK_HDR as any)[t]);
         toast('Novo diagrama de exemplo — edite o código à vontade');
     };
     $('examples').onchange = (e: any) => {
-        positions = {}; store.set('pos', '{}');
-        src.value = EXAMPLES[+e.target.value].code;
-        renderHighlight(); updateGutter();
-        applySource(src.value, { resetLayout: true, animate: true, mode: layoutSel.value });
-        fitView(true);
+        loadCode(EXAMPLES[+e.target.value].code, { animate: true });
         toast(`Exemplo “${EXAMPLES[+e.target.value].name}” carregado`);
     };
 
+    /* carregar código (exemplos, arquivos .mmd e menu Novo) */
+    function loadCode(code: string, opts: any = {}) {
+        positions = {}; store.set('pos', '{}');
+        src.value = code;
+        renderHighlight(); updateGutter();
+        applySource(src.value, { resetLayout: true, ...opts, mode: layoutSel.value });
+        fitView(true);
+    }
+
+    /* menu Novo / Limpar tudo (TopBar) */
+    onNew((t) => {
+        const code = t === 'blank' ? 'erDiagram' : (BLANK_HDR as any)[t];
+        if (code == null) return;
+        loadCode(code);
+        toast(t === 'blank' ? 'Editor limpo — crie seu novo diagrama' : 'Novo diagrama — edite o código à vontade');
+    });
+
+    /* drag & drop / abrir arquivo .mmd/.mermaid */
+    onLoadCode((code, name) => {
+        loadCode(code);
+        toast(name ? `Arquivo “${name}” carregado` : 'Diagrama carregado');
+    });
+
 
     /* ══════════ 20-panel-resize.js ══════════ */
-    /* ══════════ painel redimensionável ══════════ */
-    const panelResize = $('panelResize');
-    {
-        const savedW = parseInt(store.get('panelW') || '', 10);
-        if (savedW >= 260 && savedW <= 720) panel.style.width = savedW + 'px';
-    }
-    panelResize.addEventListener('pointerdown', (e: any) => {
-        if (panel.classList.contains('hidden')) return;
-        e.preventDefault();
-        panelResize.setPointerCapture(e.pointerId);
-        panelResize.classList.add('dragging');
-        panel.classList.add('resizing');
-        const startX = e.clientX, startW = panel.getBoundingClientRect().width;
-        const move = (ev: any) => {
-            const w = clamp(Math.round(startW + (ev.clientX - startX)), 260, 720);
-            panel.style.width = w + 'px';
-        };
-        const up = (_ev: PointerEvent) => {
-            panelResize.releasePointerCapture(e.pointerId);
-            panelResize.classList.remove('dragging');
-            panel.classList.remove('resizing');
-            panelResize.removeEventListener('pointermove', move);
-            panelResize.removeEventListener('pointerup', up);
-            store.set('panelW', String(clamp(Math.round(panel.getBoundingClientRect().width), 260, 720)));
-            applyView();
-        };
-        panelResize.addEventListener('pointermove', move);
-        panelResize.addEventListener('pointerup', up);
-    });
+    /* a largura do painel é controlada pelo componente React <PanelResize/>;
+     * aqui só a cena precisa reagir ao novo tamanho do canvas. */
     new ResizeObserver(() => { sceneRect = null; applyView(); }).observe(canvas);
 
 

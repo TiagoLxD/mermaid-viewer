@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '../shared/Button';
 import { Icon } from '../shared/Icon';
 import { Select, type SelectOption } from '../shared/Select';
-import { publishTransparent, requestExport, type ExportFormat } from '../state/ui-bus';
+import { publishTransparent, requestExport, requestNew, requestOpenFile, type ExportFormat } from '../state/ui-bus';
+
+type MenuId = 'export' | 'new' | null;
 
 const DIAGRAM_TYPES: SelectOption[] = [
     { value: 'er', label: 'ER' },
@@ -24,8 +26,6 @@ const EXAMPLES: SelectOption[] = [
     { value: '6', label: 'Contexto C4' },
 ];
 
-
-
 const EXPORT_FORMATS: { x: ExportFormat; label: string; hint: string }[] = [
     { x: 'mmd', label: 'Código Mermaid', hint: 'arquivo .mmd para versionar' },
     { x: 'svg', label: 'SVG', hint: 'vetorial, editável em qualquer editor' },
@@ -33,21 +33,26 @@ const EXPORT_FORMATS: { x: ExportFormat; label: string; hint: string }[] = [
 ];
 
 export function TopBar() {
-    /* menu de export: estado 100% React; engine só recebe o pedido via bus */
-    const [open, setOpen] = useState(false);
+    /* menus: estado 100% React; engine só recebe pedidos via bus */
+    const [openMenu, setOpenMenu] = useState<MenuId>(null);
     const [transp, setTransp] = useState(false);
-    const menuRef = useRef<HTMLDivElement | null>(null);
+    const barRef = useRef<HTMLElement | null>(null);
+
     useEffect(() => {
         const close = (e: MouseEvent) => {
-            if (!(e.target as Element).closest('.menu-wrap')) setOpen(false);
+            if (barRef.current && !barRef.current.contains(e.target as Node)) setOpenMenu(null);
         };
         document.addEventListener('click', close);
         return () => document.removeEventListener('click', close);
     }, []);
-    const doExport = (x: ExportFormat) => { setOpen(false); requestExport(x); };
+
+    const toggle = (id: Exclude<MenuId, null>) =>
+        setOpenMenu((cur) => (cur === id ? null : id));
+    const doExport = (x: ExportFormat) => { setOpenMenu(null); requestExport(x); };
+    const doNew = (t: string) => { setOpenMenu(null); requestNew(t); };
 
     return (
-        <header id="topbar">
+        <header id="topbar" ref={barRef}>
             <div className="brand" aria-hidden="true">
                 <svg
                     width="22"
@@ -68,23 +73,54 @@ export function TopBar() {
                 <span className="brand-tag">diagramas entidade-relacionamento</span>
             </div>
 
-            <div className="spacer" />
+            {/* ── grupo arquivo: novo / limpar / exemplos ── */}
+            <div className="tb-group" role="toolbar" aria-label="Arquivo">
+                <div className="menu-wrap">
+                    <Button
+                        id="btnNew"
+                        variant="ghost"
+                        aria-haspopup="menu"
+                        aria-expanded={openMenu === 'new'}
+                        onClick={() => toggle('new')}
+                    >
+                        <Icon name="filePlus" size={15} />
+                        <span className="b-label">Novo</span>
+                        <Icon name="chevD" size={13} className="chev" />
+                    </Button>
+                    {openMenu === 'new' && (
+                        <div id="newMenu" className="menu open" role="menu">
+                            <div className="menu-title">Criar novo diagrama</div>
+                            {DIAGRAM_TYPES.map((t) => (
+                                <button key={t.value} type="button" role="menuitem" onClick={() => doNew(t.value)}>
+                                    {t.label}
+                                </button>
+                            ))}
+                            <div className="menu-sep" role="separator" />
+                            <button type="button" role="menuitem" className="danger" onClick={() => doNew('blank')}>
+                                <Icon name="trash" size={14} /> Limpar tudo
+                            </button>
+                        </div>
+                    )}
+                </div>
 
-            <div className="top-actions">
-                <Select
-                    id="typeSel"
-                    aria-label="Tipo de diagrama para começar do zero"
-                    placeholder="Tipo…"
-                    options={DIAGRAM_TYPES}
-                />
-                <Select 
-                    id="examples" 
-                    aria-label="Exemplos de diagramas" 
-                    options={EXAMPLES}
-                />
+                <Button id="btnOpen" variant="ghost" title="Abrir arquivo .mmd/.mermaid" onClick={() => { setOpenMenu(null); requestOpenFile(); }}>
+                    <Icon name="upload" size={14} />
+                    <span className="b-label">Abrir</span>
+                </Button>
 
                 <span className="vsep" />
 
+                <Select
+                    id="examples"
+                    aria-label="Exemplos de diagramas"
+                    options={EXAMPLES}
+                />
+            </div>
+
+            <div className="spacer" />
+
+            {/* ── grupo ações: ajuda, compartilhar, exportar, tema ── */}
+            <div className="top-actions tb-group" role="toolbar" aria-label="Ações">
                 <Button
                     id="btnDocs"
                     variant="ghost"
@@ -102,17 +138,21 @@ export function TopBar() {
                     aria-label="Compartilhar"
                 />
 
-                <div className="menu-wrap" ref={menuRef}>
+                <span className="vsep" />
+
+                <div className="menu-wrap">
                     <Button
                         id="btnExport"
                         variant="primary"
-                        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
+                        aria-haspopup="menu"
+                        aria-expanded={openMenu === 'export'}
+                        onClick={(e) => { e.stopPropagation(); toggle('export'); }}
                     >
                         <Icon name="download" size={15} />
                         <span className="b-label">Exportar</span>
                         <Icon name="chevD" size={14} />
                     </Button>
-                    {open && (
+                    {openMenu === 'export' && (
                         <div id="exportMenu" className="menu open">
                             {EXPORT_FORMATS.map(({ x, label, hint }) => (
                                 <button key={x} type="button" onClick={() => doExport(x)}>

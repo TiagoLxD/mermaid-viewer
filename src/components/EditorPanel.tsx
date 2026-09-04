@@ -5,9 +5,9 @@ import { Highlight } from './editor/Highlight';
 import { SnippetMenu } from './editor/SnippetMenu';
 
 /** Painel de código (textarea + highlight + gutter + snippets). */
-export function EditorPanel() {
+export function EditorPanel({ width }: { width: number }) {
     return (
-        <aside id="panel">
+        <aside id="panel" style={{ width }}>
             <div className="panel-head">
                 <span className="panel-title">Editor Mermaid</span>
                 <div className="actions">

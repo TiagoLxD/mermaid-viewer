@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { mountEngine } from '../engine/engine';
 import { TopBar } from './TopBar';
 import { EditorPanel } from './EditorPanel';
+import { PanelResize, DEFAULT_PANEL_W } from './PanelResize';
 import { Stage } from './Stage';
 import { DocsPanel } from './DocsPanel';
 import { Toasts } from './Toasts';
+import { DropZone } from './DropZone';
 
 /**
  * Shell da aplicação. Os elementos aqui renderizados são identificados
@@ -12,6 +14,8 @@ import { Toasts } from './Toasts';
  * assume o comportamento (parser, layout, editor, export).
  */
 export default function EngineHost() {
+    const [panelW, setPanelW] = useState(DEFAULT_PANEL_W);
+
     useEffect(() => {
         mountEngine();
     }, []);
@@ -21,13 +25,14 @@ export default function EngineHost() {
             <TopBar />
 
             <main id="app">
-                <EditorPanel />
-                <div id="panelResize" title="Arraste para redimensionar o painel de código" />
+                <EditorPanel width={panelW} />
+                <PanelResize width={panelW} onResize={setPanelW} />
                 <Stage />
             </main>
 
             <DocsPanel />
 
+            <DropZone />
             <Toasts />
         </>
     );

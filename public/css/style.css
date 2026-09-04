@@ -120,6 +120,56 @@ span[data-icon] {
     margin-left: 2px
 }
 
+/* grupo pill da topbar: ações relacionadas agrupadas */
+.tb-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    background: var(--surface2, rgba(0, 0, 0, .04));
+    border: 1px solid var(--line);
+    border-radius: 11px
+}
+
+.tb-group .btn.ghost:hover {
+    background: var(--surface)
+}
+
+.tb-group .vsep {
+    height: 18px;
+    margin: 0 3px
+}
+
+.tb-group .chev {
+    opacity: .55
+}
+
+.menu-title {
+    padding: 6px 11px 4px;
+    font: 600 10px var(--mono);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    white-space: nowrap
+}
+
+.menu-sep {
+    height: 1px;
+    background: var(--line);
+    margin: 4px 6px
+}
+
+.menu button.danger {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    color: #b3382e
+}
+
+.menu button.danger:hover {
+    background: rgba(179, 56, 46, .1)
+}
+
 .spacer {
     flex: 1
 }
@@ -486,7 +536,8 @@ span[data-icon] {
     position: relative;
     z-index: 20;
     flex: 0 0 auto;
-    margin: 0 -1px
+    margin: 0 -1px;
+    overflow: hidden
 }
 
 #panelResize::before {
@@ -511,7 +562,10 @@ span[data-icon] {
 
 #panelResize.dragging::before {
     opacity: 1;
-    height: 100vh;
+    top: 0;
+    bottom: 0;
+    height: auto;
+    transform: none;
     background: var(--accent)
 }
 
@@ -1447,9 +1501,36 @@ textarea::-webkit-scrollbar-thumb {
     margin: 0 3px
 }
 
-#minimap {
+.tb-sep.v {
+    width: 18px;
+    height: 1px;
+    margin: 3px 0
+}
+
+/* toolbar vertical: zoom e enquadramento */
+#toolbarV {
     position: absolute;
     right: 14px;
+    bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    box-shadow: var(--shadow);
+    z-index: 10
+}
+
+#toolbarV .tb-zoom {
+    min-width: 44px
+}
+
+#minimap {
+    position: absolute;
+    right: 78px;
     bottom: 14px;
     width: 190px;
     height: 120px;
@@ -1459,6 +1540,47 @@ textarea::-webkit-scrollbar-thumb {
     box-shadow: var(--shadow);
     z-index: 10;
     cursor: pointer
+}
+
+/* ── overlay de drag & drop de arquivos ── */
+#dropOverlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--bg) 55%, transparent);
+    backdrop-filter: blur(3px);
+    z-index: 80;
+    pointer-events: none
+}
+
+#dropOverlay.open {
+    display: flex
+}
+
+#dropOverlay .drop-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 34px 48px;
+    border: 2px dashed var(--accent);
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    color: var(--accent);
+    pointer-events: none
+}
+
+#dropOverlay .drop-card strong {
+    font: 600 15px var(--sans);
+    color: var(--ink)
+}
+
+#dropOverlay .drop-card span {
+    font: 400 11.5px var(--mono);
+    color: var(--ink3)
 }
 
 .mm-t {

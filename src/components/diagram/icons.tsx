@@ -163,6 +163,37 @@ export function IconX(p: IconSvgProps) {
     );
 }
 
+export function IconFilePlus(p: IconSvgProps) {
+    return (
+        <Svg {...p}>
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <path d="M14 2v6h6" />
+            <path d="M12 12v6M9 15h6" />
+        </Svg>
+    );
+}
+
+export function IconUpload(p: IconSvgProps) {
+    return (
+        <Svg {...p}>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <path d="M17 8l-5-5-5 5" />
+            <path d="M12 3v12" />
+        </Svg>
+    );
+}
+
+export function IconTrash(p: IconSvgProps) {
+    return (
+        <Svg {...p}>
+            <path d="M3 6h18" />
+            <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            <path d="M10 11v6M14 11v6" />
+        </Svg>
+    );
+}
+
 /* nomes usados pela API legada (data-icon) mapeados para componentes */
 export const ICON_COMPONENTS = {
     copy: IconCopy,
@@ -181,6 +212,9 @@ export const ICON_COMPONENTS = {
     book: IconBook,
     help: IconHelp,
     x: IconX,
+    filePlus: IconFilePlus,
+    upload: IconUpload,
+    trash: IconTrash,
 } as const;
 
 export type IconName = keyof typeof ICON_COMPONENTS;

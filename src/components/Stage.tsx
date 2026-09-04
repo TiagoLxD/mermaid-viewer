@@ -45,24 +45,6 @@ export function Stage() {
                     />
                     <span className="tb-sep" />
                     <Button
-                        id="btnZoomOut"
-                        className="tb-btn"
-                        icon="minus"
-                        title="Reduzir zoom"
-                        aria-label="Reduzir zoom"
-                    />
-                    <button type="button" className="tb-zoom" id="zoomLbl" title="Restaurar zoom para 100%">
-                        100%
-                    </button>
-                    <Button
-                        id="btnZoomIn"
-                        className="tb-btn"
-                        icon="plus"
-                        title="Ampliar zoom"
-                        aria-label="Ampliar zoom"
-                    />
-                    <span className="tb-sep" />
-                    <Button
                         id="btnPreview"
                         className="tb-btn"
                         title="Modo prévia: navegue sem mover tabelas (P)"
@@ -72,6 +54,27 @@ export function Stage() {
                         <span className="i-lock"><Icon name="lock" size={15} /></span>
                         <span className="i-unlock"><Icon name="unlock" size={15} /></span>
                     </Button>
+                </div>
+
+                <div id="toolbarV" aria-label="Zoom e navegação">
+                    <Button
+                        id="btnZoomIn"
+                        className="tb-btn"
+                        icon="plus"
+                        title="Ampliar zoom"
+                        aria-label="Ampliar zoom"
+                    />
+                    <button type="button" className="tb-zoom" id="zoomLbl" title="Restaurar zoom para 100%">
+                        100%
+                    </button>
+                    <Button
+                        id="btnZoomOut"
+                        className="tb-btn"
+                        icon="minus"
+                        title="Reduzir zoom"
+                        aria-label="Reduzir zoom"
+                    />
+                    <span className="tb-sep v" />
                     <Button
                         id="btnFit"
                         className="tb-btn"

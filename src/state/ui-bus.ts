@@ -79,3 +79,35 @@ export function onTransparent(handler: (on: boolean) => void): () => void {
     window.addEventListener('meridian:transp', h);
     return () => window.removeEventListener('meridian:transp', h);
 }
+
+/* ── arquivo: novo / limpar / abrir (drag & drop e input) ── */
+
+/** Componente → engine: cria um diagrama novo do tipo informado ('blank' limpa tudo). */
+export function requestNew(type: string) {
+    window.dispatchEvent(new CustomEvent('meridian:new', { detail: type }));
+}
+
+export function onNew(handler: (type: string) => void): () => void {
+    const h = (e: Event) => handler(String((e as CustomEvent).detail));
+    window.addEventListener('meridian:new', h);
+    return () => window.removeEventListener('meridian:new', h);
+}
+
+/** Componente → engine: carrega código vindo de um arquivo .mmd/.mermaid. */
+export function requestLoadCode(code: string, name = '') {
+    window.dispatchEvent(new CustomEvent('meridian:load-code', { detail: { code, name } }));
+}
+
+export function onLoadCode(handler: (code: string, name: string) => void): () => void {
+    const h = (e: Event) => {
+        const d = (e as CustomEvent).detail ?? {};
+        handler(String(d.code ?? ''), String(d.name ?? ''));
+    };
+    window.addEventListener('meridian:load-code', h);
+    return () => window.removeEventListener('meridian:load-code', h);
+}
+
+/** Componente → componente: pede ao DropZone para abrir o seletor de arquivos. */
+export function requestOpenFile() {
+    window.dispatchEvent(new CustomEvent('meridian:open-file'));
+}
