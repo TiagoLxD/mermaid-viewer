@@ -1499,7 +1499,7 @@ textarea::-webkit-scrollbar-thumb {
     top: 0;
     right: 0;
     bottom: 0;
-    width: min(600px, 94vw);
+    width: min(800px, 94vw);
     background: var(--surface);
     border-left: 1px solid var(--line);
     z-index: 55;
@@ -1587,7 +1587,7 @@ body.code-hidden #btnShowCode {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 6px 32px 30px
+    padding: 6px 48px 30px
 }
 
 .docs-body::-webkit-scrollbar {
