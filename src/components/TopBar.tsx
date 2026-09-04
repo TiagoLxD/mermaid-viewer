@@ -1,6 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '../shared/Button';
 import { Icon } from '../shared/Icon';
 import { Select, type SelectOption } from '../shared/Select';
+import { publishTransparent, requestExport, type ExportFormat } from '../state/ui-bus';
 
 const DIAGRAM_TYPES: SelectOption[] = [
     { value: 'er', label: 'ER' },
@@ -22,13 +24,28 @@ const EXAMPLES: SelectOption[] = [
     { value: '6', label: 'Contexto C4' },
 ];
 
-const EXPORT_FORMATS: { x: 'mmd' | 'svg' | 'png'; label: string; hint: string }[] = [
+
+
+const EXPORT_FORMATS: { x: ExportFormat; label: string; hint: string }[] = [
     { x: 'mmd', label: 'Código Mermaid', hint: 'arquivo .mmd para versionar' },
     { x: 'svg', label: 'SVG', hint: 'vetorial, editável em qualquer editor' },
     { x: 'png', label: 'PNG', hint: 'imagem rasterizada em 2×' },
 ];
 
 export function TopBar() {
+    /* menu de export: estado 100% React; engine só recebe o pedido via bus */
+    const [open, setOpen] = useState(false);
+    const [transp, setTransp] = useState(false);
+    const menuRef = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+        const close = (e: MouseEvent) => {
+            if (!(e.target as Element).closest('.menu-wrap')) setOpen(false);
+        };
+        document.addEventListener('click', close);
+        return () => document.removeEventListener('click', close);
+    }, []);
+    const doExport = (x: ExportFormat) => { setOpen(false); requestExport(x); };
+
     return (
         <header id="topbar">
             <div className="brand" aria-hidden="true">
@@ -85,22 +102,32 @@ export function TopBar() {
                     aria-label="Compartilhar"
                 />
 
-                <div className="menu-wrap">
-                    <Button id="btnExport" variant="primary">
+                <div className="menu-wrap" ref={menuRef}>
+                    <Button
+                        id="btnExport"
+                        variant="primary"
+                        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
+                    >
                         <Icon name="download" size={15} />
                         <span className="b-label">Exportar</span>
                         <Icon name="chevD" size={14} />
                     </Button>
-                    <div id="exportMenu" className="menu">
-                        {EXPORT_FORMATS.map(({ x, label, hint }) => (
-                            <button key={x} data-x={x}>
-                                {label} <small>{hint}</small>
-                            </button>
-                        ))}
-                        <label className="menu-opt">
-                            <input type="checkbox" id="optTransp" /> Fundo transparente
-                        </label>
-                    </div>
+                    {open && (
+                        <div id="exportMenu" className="menu">
+                            {EXPORT_FORMATS.map(({ x, label, hint }) => (
+                                <button key={x} type="button" onClick={() => doExport(x)}>
+                                    {label} <small>{hint}</small>
+                                </button>
+                            ))}
+                            <label className="menu-opt">
+                                <input
+                                    type="checkbox"
+                                    checked={transp}
+                                    onChange={(e) => { setTransp(e.target.checked); publishTransparent(e.target.checked); }}
+                                />{' '}Fundo transparente
+                            </label>
+                        </div>
+                    )}
                 </div>
 
                 <Button

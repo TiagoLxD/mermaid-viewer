@@ -28,3 +28,19 @@ export function tw(t: string, font: string): number {
     c.font = font;
     return c.measureText(t).width;
 }
+
+/** Aguarda as fontes da UI carregarem. As larguras das tabelas são medidas
+    via canvas (tw) — medir antes do carregamento produziria tabelas com
+    largura errada que só seriam corrigidas no próximo re-layout. */
+export async function whenFontsReady(): Promise<void> {
+    try {
+        await Promise.all([
+            document.fonts.load('600 12px "Space Grotesk"'),
+            document.fonts.load('500 12px "JetBrains Mono"'),
+            document.fonts.load('400 11px "JetBrains Mono"'),
+            document.fonts.load('italic 400 11px "JetBrains Mono"'),
+            document.fonts.load('700 8.5px "JetBrains Mono"'),
+            document.fonts.load('600 9.5px "JetBrains Mono"'),
+        ]);
+    } catch { /* ambientes sem FontFaceSet: mede com fallback */ }
+}

@@ -2,10 +2,12 @@
 // Organizado em blocos marcados com /* ══════════ NN-nome ══════════ */ — edite aqui mesmo.
 
 import { parseMermaid } from './parser';
-import { F, tw } from './measure';
+import { F, tw, whenFontsReady } from './measure';
 import { createSceneBridge } from './scene-bridge';
 import { expandAt, adjustStops, computeAcContext, acOptions, isInsideEntityBlock, type ResolvedStop } from './snippets';
 import { toast } from './toast';
+import { buildExportSVG, downloadBlob, type ExportSvgParams } from './export';
+import { onExport, onTransparent, type ExportFormat } from '../state/ui-bus';
 import { publishAc, publishGutter, publishHighlight, onAcAccept } from '../state/ui-bus';
 import { computeEdges, type EdgeGeom } from './edges-geom';
 import type { Entity, ParseResult } from './types';
@@ -30,24 +32,19 @@ export function mountEngine() {
     /* ══════════ 00-core.js ══════════ */
     /* ══════════ refs & helpers ══════════ */
     const $ = (id: string): any => document.getElementById(id);
-    const NS = 'http://www.w3.org/2000/svg';
     const canvas = $('canvas'), scene = $('scene'), gEdges = $('gEdges'), gTables = $('gTables'),
         gTop = $('gTop'), gGuides = $('gGuides'), src = $('src'), hl = $('hl'),
         panel = $('panel'), statsEl = $('stats'), zoomLbl = $('zoomLbl'),
         parseDot = $('parseDot'), parseText = $('parseText'), parseFoot = $('parseFoot'),
         mm = $('minimap'), mmContent = $('mmContent'), mmView = $('mmView'),
-        exportMenu = $('exportMenu'),
         docs = $('docs'), docsBackdrop = $('docsBackdrop');
 
     const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
-    function svgEl(tag: string, attrs: Record<string, any> = {}) { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); return el; }
     /* aplica o tema salvo imediatamente — evita flash de tema errado no load */
     try {
         const t0 = localStorage.getItem('meridian:theme');
         if (t0) document.documentElement.dataset.theme = t0;
     } catch (e) { }
-    const cssVar = (n: any) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-
 
     /* ══════════ 04-measure.js ══════════ */
     /* ══════════ medidas das tabelas ══════════ */
@@ -561,63 +558,22 @@ export function mountEngine() {
 
 
     /* ══════════ 13-export.js ══════════ */
-    /* ══════════ exportação SVG / PNG ══════════ */
-    let _fontCSS: any = null;
-    async function getFontCSS() {
-        if (_fontCSS !== null) return _fontCSS;
-        try {
-            const link = document.querySelector('link[href*="fonts.googleapis"]') as HTMLLinkElement | null;
-            const css = await (await fetch(link!.href)).text();
-            const blocks = css.split('@font-face').slice(1).map(b => '@font-face' + b.slice(0, b.indexOf('}') + 1));
-            let out = '';
-            for (const b of blocks.filter(x => x.includes('U+0000-00FF'))) {
-                const u = b.match(/url\((https:[^)]+)\)/)![1];
-                const arr = new Uint8Array(await (await fetch(u)).arrayBuffer());
-                let bin = ''; for (let i = 0; i < arr.length; i += 0x8000) bin += String.fromCharCode.apply(null, arr.subarray(i, i + 0x8000) as unknown as number[]);
-                out += b.replace(u, `data:font/woff2;base64,${btoa(bin)}`);
-            }
-            _fontCSS = out;
-        } catch (e) { _fontCSS = ''; }
-        return _fontCSS;
-    }
-    const THEME_VARS = ['--surface', '--surface2', '--canvas', '--ink', '--ink2', '--ink3', '--line', '--line2', '--edge', '--accent', '--pkbg', '--pkln', '--pkfg', '--mono', '--sans', '--pie-txt'];
-    async function buildExportSVG() {
-        const bb = contentBBox(); if (!bb) return null;
-        const pad = 56, W = Math.round(bb.w + pad * 2), H = Math.round(bb.h + pad * 2);
-        const clone = scene.cloneNode(true);
-        clone.removeAttribute('style'); clone.removeAttribute('class');
-        clone.setAttribute('xmlns', NS);
-        clone.setAttribute('viewBox', `${bb.x - pad} ${bb.y - pad} ${W} ${H}`);
-        clone.setAttribute('width', W); clone.setAttribute('height', H);
-        clone.querySelector('#gGuides')?.remove();
-        clone.querySelectorAll('[style]').forEach((el: any) => el.removeAttribute('style'));
-        for (const c of ['enter', 'dragging', 'dim', 'on', 'dimt', 'sel', 'drawing'])
-            clone.querySelectorAll('.' + c).forEach((el: any) => el.classList.remove(c));
-        const vars = THEME_VARS.map(n => `${n}:${cssVar(n)}`).join(';');
-        const st = document.createElementNS(NS, 'style');
-        let appCss = '';
-        try { appCss = await (await fetch('css/style.css')).text(); } catch (e) { /* file://: exporta só com vars + fontes */ }
-        st.textContent = `:root{${vars}} ${appCss} ${await getFontCSS()}`;
-        clone.insertBefore(st, clone.firstChild);
-        if (store.get('transp') !== '1') {
-            const bg = svgEl('rect', { x: bb.x - pad, y: bb.y - pad, width: W, height: H, fill: cssVar('--canvas') });
-            clone.insertBefore(bg, st.nextSibling);
-        }
-        return { str: new XMLSerializer().serializeToString(clone), W, H };
-    }
-    function downloadBlob(blob: any, name: any) {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob); a.download = name; a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    /* ══════════ exportação: lógica em export.ts; engine só liga ao modelo ══════════ */
+    async function buildSVG() {
+        return buildExportSVG({
+            scene,
+            bbox: contentBBox(),
+            transparent: store.get('transp') === '1',
+        } as ExportSvgParams);
     }
     async function exportSVG() {
-        const r = await buildExportSVG();
+        const r = await buildSVG();
         if (!r) { toast('Nada para exportar', 'err'); return; }
         downloadBlob(new Blob([r.str], { type: 'image/svg+xml;charset=utf-8' }), 'diagrama-er.svg');
         toast('SVG exportado');
     }
     async function exportPNG() {
-        const r = await buildExportSVG();
+        const r = await buildSVG();
         if (!r) { toast('Nada para exportar', 'err'); return; }
         try {
             const url = URL.createObjectURL(new Blob([r.str], { type: 'image/svg+xml;charset=utf-8' }));
@@ -626,20 +582,22 @@ export function mountEngine() {
             const c = document.createElement('canvas'); c.width = r.W * 2; c.height = r.H * 2;
             const ctx = c.getContext('2d')!; ctx.scale(2, 2); ctx.drawImage(img, 0, 0, r.W, r.H);
             URL.revokeObjectURL(url);
-            c.toBlob(b => { downloadBlob(b, 'diagrama-er.png'); toast('PNG exportado (2×)'); }, 'image/png');
-        } catch (e) { toast('Falha ao gerar PNG', 'err'); }
+            c.toBlob((b: Blob | null) => { if (b) downloadBlob(b, 'diagrama-er.png'); toast('PNG exportado (2×)'); }, 'image/png');
+        } catch { toast('Falha ao gerar PNG', 'err'); }
     }
-
-
-    /* ══════════ 14-ui.js ══════════ */
-    /* ══════════ toasts / tema / painel / menus / docs ══════════ */
-
-
     function exportMMD() {
         if (!src.value.trim()) { toast('Nada para salvar', 'err'); return; }
         downloadBlob(new Blob([src.value], { type: 'text/plain;charset=utf-8' }), 'diagrama-er.mmd');
         toast('Código Mermaid salvo');
     }
+    function runExport(format: ExportFormat) {
+        if (format === 'svg') exportSVG();
+        else if (format === 'png') exportPNG();
+        else exportMMD();
+    }
+
+    /* ══════════ 14-ui.js ══════════ */
+    /* ══════════ toasts / tema / painel / menus / docs ══════════ */
 
 
     /* ══════════ 15-share.js ══════════ */
@@ -670,17 +628,8 @@ export function mountEngine() {
         document.body.classList.toggle('code-hidden', hidden);
     };
     $('btnShowCode').onclick = () => $('btnPanel').click();
-    $('btnExport').onclick = (e: any) => { e.stopPropagation(); exportMenu.classList.toggle('open'); };
-    document.addEventListener('click', (e: any) => { if (!e.target.closest('.menu-wrap')) exportMenu.classList.remove('open'); });
-    exportMenu.querySelectorAll('button').forEach((b: any) => b.onclick = () => {
-        exportMenu.classList.remove('open');
-        if (b.dataset.x === 'svg') exportSVG();
-        else if (b.dataset.x === 'png') exportPNG();
-        else exportMMD();
-    });
-    const optTransp = $('optTransp');
-    optTransp.checked = store.get('transp') === '1';
-    optTransp.onchange = () => store.set('transp', optTransp.checked ? '1' : '0');
+    onExport(runExport);
+    onTransparent((on: boolean) => store.set('transp', on ? '1' : '0'));
 
     function toggleDocs(open = true) {
         const o = open ?? !docs.classList.contains('open');
@@ -974,7 +923,10 @@ export function mountEngine() {
         }
     });
     window.addEventListener('keydown', e => {
-        if (e.key === 'Escape') { exportMenu.classList.remove('open'); toggleDocs(false); selectedId = null; updateFocus(); }
+        if (e.key === 'Escape') {
+            document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            toggleDocs(false); selectedId = null; updateFocus();
+        }
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); applyNow(true); }
         const tag: string | undefined = document.activeElement?.tagName;
         if (e.key === '?' && tag !== 'TEXTAREA' && tag !== 'INPUT') { e.preventDefault(); toggleDocs(); }
@@ -1106,16 +1058,8 @@ export function mountEngine() {
             panel.classList.add('hidden');
             document.body.classList.add('code-hidden');
         }
-        try {
-            await Promise.all([
-                document.fonts.load('600 12px "Space Grotesk"'),
-                document.fonts.load('500 12px "JetBrains Mono"'),
-                document.fonts.load('400 11px "JetBrains Mono"'),
-                document.fonts.load('italic 400 11px "JetBrains Mono"'),
-                document.fonts.load('700 8.5px "JetBrains Mono"'),
-                document.fonts.load('600 9.5px "JetBrains Mono"')
-            ]);
-        } catch (e) { }
+        /* fontes antes do 1º layout: as medidas de texto precisam das métricas finais */
+        await whenFontsReady();
         try { positions = JSON.parse(store.get('pos') || '{}') || {}; } catch { positions = {}; }
         const shared = loadSharedCode();
         const saved = shared ?? store.get('code');

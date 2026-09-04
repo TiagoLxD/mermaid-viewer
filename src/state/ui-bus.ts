@@ -56,3 +56,26 @@ export function subscribeHighlight(handler: (html: string) => void): () => void 
     window.addEventListener('meridian:highlight', h);
     return () => window.removeEventListener('meridian:highlight', h);
 }
+
+/* ── export ── */
+export type ExportFormat = 'mmd' | 'svg' | 'png';
+
+export function requestExport(format: ExportFormat) {
+    window.dispatchEvent(new CustomEvent('meridian:export', { detail: format }));
+}
+
+export function onExport(handler: (format: ExportFormat) => void): () => void {
+    const h = (e: Event) => handler((e as CustomEvent).detail);
+    window.addEventListener('meridian:export', h);
+    return () => window.removeEventListener('meridian:export', h);
+}
+
+export function publishTransparent(on: boolean) {
+    window.dispatchEvent(new CustomEvent('meridian:transp', { detail: on }));
+}
+
+export function onTransparent(handler: (on: boolean) => void): () => void {
+    const h = (e: Event) => handler(!!(e as CustomEvent).detail);
+    window.addEventListener('meridian:transp', h);
+    return () => window.removeEventListener('meridian:transp', h);
+}

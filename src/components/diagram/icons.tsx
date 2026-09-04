@@ -2,6 +2,7 @@
 
 export interface IconSvgProps {
     size?: number;
+    className?: string;
 }
 
 const S = {
@@ -12,9 +13,9 @@ const S = {
     strokeLinejoin: 'round' as const,
 };
 
-function Svg({ size = 16, children }: IconSvgProps & { children: React.ReactNode }) {
+function Svg({ size = 16, className, children }: IconSvgProps & { children: React.ReactNode }) {
     return (
-        <svg width={size} height={size} viewBox="0 0 24 24" {...S} aria-hidden="true">
+        <svg width={size} height={size} viewBox="0 0 24 24" {...S} aria-hidden="true" className={className}>
             {children}
         </svg>
     );
