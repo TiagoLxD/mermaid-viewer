@@ -1,5 +1,6 @@
 import { Button } from '../shared/Button';
 import { Icon } from '../shared/Icon';
+import { requestTogglePanel } from '../state/ui-bus';
 
 const LAYOUTS = [
     { value: 'layered', label: 'Hierárquico' },
@@ -19,6 +20,7 @@ export function Stage() {
                     icon="panel"
                     title="Mostrar painel de código"
                     aria-label="Mostrar painel de código"
+                    onClick={() => requestTogglePanel()}
                 />
 
                 <svg id="scene">

@@ -3,11 +3,12 @@ import { Icon } from '../shared/Icon';
 import { Gutter } from './editor/Gutter';
 import { Highlight } from './editor/Highlight';
 import { SnippetMenu } from './editor/SnippetMenu';
+import { requestTogglePanel } from '../state/ui-bus';
 
 /** Painel de código (textarea + highlight + gutter + snippets). */
-export function EditorPanel({ width }: { width: number }) {
+export function EditorPanel({ width, hidden }: { width: number; hidden: boolean }) {
     return (
-        <aside id="panel" style={{ width }}>
+        <aside id="panel" className={hidden ? 'hidden' : undefined} style={{ width }}>
             <div className="panel-head">
                 <span className="panel-title">Editor Mermaid</span>
                 <div className="actions">
@@ -22,6 +23,7 @@ export function EditorPanel({ width }: { width: number }) {
                         icon="panel"
                         title="Ocultar painel de código"
                         aria-label="Ocultar painel de código"
+                        onClick={() => requestTogglePanel()}
                     />
                 </div>
             </div>

@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Button } from '../shared/Button';
 import { MiniRel } from './diagram/edges';
+import { onToggleDocs } from '../state/ui-bus';
 
 /** Código de exemplo com highlight simples (<span class="kw">…</span>). */
 function Code({ html }: { html: string }) {
@@ -19,10 +21,32 @@ const TABS = [
 
 /** Documentação da linguagem Mermaid (drawer lateral). */
 export function DocsPanel() {
+    const [open, setOpen] = useState(false);
+    const [tab, setTab] = useState<string>('geral');
+
+    /* pedidos de abrir/fechar vindos de outros componentes e do engine (tecla ?) */
+    useEffect(() => onToggleDocs((o) => setOpen((cur) => (o ?? !cur))), []);
+
+    /* sincroniza as seções visíveis conforme a aba ativa */
+    useEffect(() => {
+        document.querySelectorAll<HTMLButtonElement>('#docsTabs .dt-tab').forEach((b) => {
+            const on = b.dataset.tab === tab;
+            b.classList.toggle('on', on);
+            b.setAttribute('aria-selected', String(on));
+        });
+        document.querySelectorAll<HTMLElement>('#docs .docs-body section[data-tab]').forEach((s) => {
+            s.classList.toggle('on', s.dataset.tab === tab);
+        });
+    }, [tab]);
+
     return (
         <>
-            <div id="docsBackdrop" />
-            <aside id="docs" aria-label="Documentação da linguagem Mermaid ER">
+            <div
+                id="docsBackdrop"
+                className={open ? 'open' : undefined}
+                onClick={() => setOpen(false)}
+            />
+            <aside id="docs" className={open ? 'open' : undefined} aria-label="Documentação da linguagem Mermaid ER">
                 <div className="docs-head">
                     <span className="panel-title">referência · linguagem</span>
                     <Button
@@ -32,19 +56,21 @@ export function DocsPanel() {
                         icon="x"
                         title="Fechar (Esc)"
                         aria-label="Fechar documentação"
+                        onClick={() => setOpen(false)}
                     />
                 </div>
 
                 <div className="docs-layout">
                     <div id="docsTabs" role="tablist" aria-label="Tipo de diagrama">
-                        {TABS.map(({ tab, label }) => (
+                        {TABS.map(({ tab: t, label }) => (
                             <button
-                                key={tab}
+                                key={t}
                                 type="button"
-                                className={`dt-tab${tab === 'geral' ? ' on' : ''}`}
-                                data-tab={tab}
+                                className={`dt-tab${t === tab ? ' on' : ''}`}
+                                data-tab={t}
                                 role="tab"
-                                aria-selected={tab === 'geral'}
+                                aria-selected={t === tab}
+                                onClick={() => setTab(t)}
                             >
                                 {label}
                             </button>

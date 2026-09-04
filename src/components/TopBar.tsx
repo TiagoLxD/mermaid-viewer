@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '../shared/Button';
 import { Icon } from '../shared/Icon';
 import { Select, type SelectOption } from '../shared/Select';
-import { publishTransparent, requestExport, requestNew, requestOpenFile, type ExportFormat } from '../state/ui-bus';
+import { publishTransparent, requestExport, requestNew, requestOpenFile, requestToggleDocs, type ExportFormat } from '../state/ui-bus';
 
 type MenuId = 'export' | 'new' | null;
 
@@ -128,6 +128,7 @@ export function TopBar() {
                     icon="help"
                     title="Ajuda: documentação da linguagem ( ? )"
                     aria-label="Ajuda / documentação"
+                    onClick={() => requestToggleDocs(true)}
                 />
                 <Button
                     id="btnShare"

@@ -111,3 +111,23 @@ export function onLoadCode(handler: (code: string, name: string) => void): () =>
 export function requestOpenFile() {
     window.dispatchEvent(new CustomEvent('meridian:open-file'));
 }
+
+/* ── painel de código: mostrar/ocultar ── */
+
+/** Componente → componente: alterna visibilidade do painel de código. */
+export function requestTogglePanel() {
+    window.dispatchEvent(new CustomEvent('meridian:toggle-panel'));
+}
+
+/* ── documentação: abrir/fechar ── */
+
+/** Componente → componente: abre (true), fecha (false) ou alterna (undefined) os docs. */
+export function requestToggleDocs(open?: boolean) {
+    window.dispatchEvent(new CustomEvent('meridian:toggle-docs', { detail: open }));
+}
+
+export function onToggleDocs(handler: (open: boolean | undefined) => void): () => void {
+    const h = (e: Event) => handler((e as CustomEvent).detail as boolean | undefined);
+    window.addEventListener('meridian:toggle-docs', h);
+    return () => window.removeEventListener('meridian:toggle-docs', h);
+}

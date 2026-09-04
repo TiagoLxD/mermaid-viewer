@@ -7,7 +7,7 @@ import { createSceneBridge } from './scene-bridge';
 import { expandAt, adjustStops, computeAcContext, acOptions, isInsideEntityBlock, type ResolvedStop } from './snippets';
 import { toast } from './toast';
 import { buildExportSVG, downloadBlob, type ExportSvgParams } from './export';
-import { onExport, onNew, onLoadCode, onTransparent, type ExportFormat } from '../state/ui-bus';
+import { onExport, onNew, onLoadCode, onTransparent, requestToggleDocs, type ExportFormat } from '../state/ui-bus';
 import { publishAc, publishGutter, publishHighlight, onAcAccept } from '../state/ui-bus';
 import { computeEdges, type EdgeGeom } from './edges-geom';
 import type { Entity, ParseResult } from './types';
@@ -34,10 +34,9 @@ export function mountEngine() {
     const $ = (id: string): any => document.getElementById(id);
     const canvas = $('canvas'), scene = $('scene'), gEdges = $('gEdges'), gTables = $('gTables'),
         gTop = $('gTop'), gGuides = $('gGuides'), src = $('src'), hl = $('hl'),
-        panel = $('panel'), statsEl = $('stats'), zoomLbl = $('zoomLbl'),
+        statsEl = $('stats'), zoomLbl = $('zoomLbl'),
         parseDot = $('parseDot'), parseText = $('parseText'), parseFoot = $('parseFoot'),
-        mm = $('minimap'), mmContent = $('mmContent'), mmView = $('mmView'),
-        docs = $('docs'), docsBackdrop = $('docsBackdrop');
+        mm = $('minimap'), mmContent = $('mmContent'), mmView = $('mmView');
 
     const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
@@ -592,7 +591,7 @@ export function mountEngine() {
     }
 
     /* ══════════ 14-ui.js ══════════ */
-    /* ══════════ toasts / tema / painel / menus / docs ══════════ */
+    /* ══════════ toasts / tema / menus ══════════ */
 
 
     /* ══════════ 15-share.js ══════════ */
@@ -624,24 +623,14 @@ export function mountEngine() {
         $('btnTheme').dataset.theme = theme;
     });
     $('btnTheme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
-    $('btnPanel').onclick = () => {
-        panel.classList.toggle('hidden');
-        const hidden = panel.classList.contains('hidden');
-        store.set('panel', hidden ? '0' : '1');
-        document.body.classList.toggle('code-hidden', hidden);
-    };
-    $('btnShowCode').onclick = () => $('btnPanel').click();
+    /* painel de código e documentação são controlados pelos componentes React
+     * (EditorPanel/PanelResize e DocsPanel) via ui-bus — aqui só respondemos
+     * às teclas globais publicando os pedidos. */
     onExport(runExport);
     onTransparent((on: boolean) => store.set('transp', on ? '1' : '0'));
 
-    function toggleDocs(open = true) {
-        const o = open ?? !docs.classList.contains('open');
-        docs.classList.toggle('open', o);
-        docsBackdrop.classList.toggle('open', o);
-    }
-    $('btnDocs').onclick = () => toggleDocs(true);
-    $('btnDocsClose').onclick = () => toggleDocs(false);
-    docsBackdrop.onclick = () => toggleDocs(false);
+    /* abrir/fechar docs e painel agora vivem nos componentes React; o engine
+     * só publica pedidos nas teclas globais (Esc e ?) */
 
 
     /* ══════════ 16-snippets.js ══════════ */
@@ -928,11 +917,12 @@ export function mountEngine() {
     window.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
             document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            toggleDocs(false); selectedId = null; updateFocus();
+            requestToggleDocs(false);
+            selectedId = null; updateFocus();
         }
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); applyNow(true); }
         const tag: string | undefined = document.activeElement?.tagName;
-        if (e.key === '?' && tag !== 'TEXTAREA' && tag !== 'INPUT') { e.preventDefault(); toggleDocs(); }
+        if (e.key === '?' && tag !== 'TEXTAREA' && tag !== 'INPUT') { e.preventDefault(); requestToggleDocs(); }
         if (!e.ctrlKey && !e.metaKey && !e.altKey && tag !== 'TEXTAREA' && (e.key === 'f' || e.key === 'F')) organize();
         if (!e.ctrlKey && !e.metaKey && !e.altKey && tag !== 'TEXTAREA' && (e.key === 'p' || e.key === 'P')) setPreview(!previewMode);
     });
@@ -1012,20 +1002,7 @@ export function mountEngine() {
     new ResizeObserver(() => { sceneRect = null; applyView(); }).observe(canvas);
 
 
-    /* ══════════ 21-docs.js ══════════ */
-    /* ── tabs da documentação ── */
-    const docsTabs = $('docsTabs');
-    const docsSections = [...document.querySelectorAll('#docs .docs-body section[data-tab]')];
-    function setDocsTab(tab: any) {
-        docsTabs.querySelectorAll('.dt-tab').forEach((b: any) => {
-            const on = b.dataset.tab === tab;
-            b.classList.toggle('on', on);
-            b.setAttribute('aria-selected', String(on));
-        });
-        docsSections.forEach((s: any) => s.classList.toggle('on', s.dataset.tab === tab));
-    }
-    docsTabs.querySelectorAll('.dt-tab').forEach((b: any) => b.onclick = () => setDocsTab(b.dataset.tab));
-    setDocsTab('geral');
+    /* tabs da documentação vivem no componente React <DocsPanel/> */
 
     function insertTemplate(tpl: any) {
         const s = src.selectionStart ?? src.value.length, e = src.selectionEnd ?? s;
@@ -1037,7 +1014,7 @@ export function mountEngine() {
         const iA = src.value.indexOf('ENTIDADE_A', s);
         src.setSelectionRange(iA, iA + 10);
         scheduleApply();
-        toggleDocs(false);
+        requestToggleDocs(false);
         toast('Gabarito inserido — substitua as entidades');
     }
     document.querySelectorAll('.chip[data-tpl]').forEach((b: any) => b.addEventListener('click', () => insertTemplate(b.dataset.tpl)));
@@ -1050,10 +1027,7 @@ export function mountEngine() {
         document.documentElement.dataset.theme = savedTheme;
         $('btnTheme').dataset.theme = savedTheme;
 
-        if (store.get('panel') === '0' || innerWidth < 861) {
-            panel.classList.add('hidden');
-            document.body.classList.add('code-hidden');
-        }
+        /* painel oculto é restaurado pelo <EngineHost/> (estado React) */
         /* fontes antes do 1º layout: as medidas de texto precisam das métricas finais */
         await whenFontsReady();
         try { positions = JSON.parse(store.get('pos') || '{}') || {}; } catch { positions = {}; }
