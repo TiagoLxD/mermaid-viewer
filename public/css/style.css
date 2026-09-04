@@ -232,7 +232,7 @@ span[data-icon] {
     align-items: center;
     justify-content: space-between;
     height: 33px;
-    padding: 0 30px 0 12px;
+    padding: 0 12px;
     border: 1px solid var(--line2);
     border-radius: 9px;
     background: var(--surface);
@@ -242,7 +242,8 @@ span[data-icon] {
     outline: none;
     max-width: 160px;
     transition: border-color .15s, background .15s, box-shadow .15s;
-    user-select: none
+    user-select: none;
+    gap: 8px
 }
 
 .select-trigger:hover {
@@ -263,12 +264,15 @@ span[data-icon] {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap
+    white-space: nowrap;
+    min-width: 0
 }
 
 .select-chevron {
+    flex-shrink: 0;
     transition: transform .2s ease;
-    color: var(--ink3)
+    color: var(--ink3);
+    margin-left: 4px
 }
 
 .select-chevron.open {
